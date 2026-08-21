@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from urllib.parse import quote
 
+_ACTIVE_TOKEN: str | None = None
+
 
 class GitHubAPIError(RuntimeError):
     def __init__(self, endpoint: str, returncode: int, stderr: str):
@@ -26,14 +28,17 @@ class GitHubAPIError(RuntimeError):
 
 
 def gh(method: str, endpoint: str, payload: dict | None = None) -> object:
-    if not os.environ.get('GH_TOKEN'):
-        raise RuntimeError('GH_TOKEN is required')
+    token = _ACTIVE_TOKEN or os.environ.get('GH_TOKEN')
+    if not token:
+        raise RuntimeError('GitHub token is required for the selected transport mode')
     cmd = ['gh', 'api', '--method', method, endpoint, '-H', 'Accept: application/vnd.github+json', '-H', 'X-GitHub-Api-Version: 2022-11-28']
     input_bytes = None
     if payload is not None:
         cmd += ['--input', '-']
         input_bytes = json.dumps(payload, separators=(',', ':')).encode('utf-8')
-    proc = subprocess.run(cmd, input=input_bytes, capture_output=True)
+    env = dict(os.environ)
+    env['GH_TOKEN'] = token
+    proc = subprocess.run(cmd, input=input_bytes, capture_output=True, env=env)
     if proc.returncode != 0:
         raise GitHubAPIError(endpoint, proc.returncode, proc.stderr.decode('utf-8', errors='replace'))
     if not proc.stdout:
@@ -90,11 +95,7 @@ def latest_commit_for_path(repo: str, branch: str, path: str) -> str:
 
 def put_file(repo: str, branch: str, path: str, payload: dict, message: str) -> str:
     encoded = base64.b64encode((json.dumps(payload, indent=2, ensure_ascii=False) + '\n').encode('utf-8')).decode('ascii')
-    data = gh('PUT', f"repos/{repo}/contents/{quote(path, safe='/')}", {
-        'message': message,
-        'content': encoded,
-        'branch': branch,
-    })
+    data = gh('PUT', f"repos/{repo}/contents/{quote(path, safe='/')}", {'message': message, 'content': encoded, 'branch': branch})
     return str(data['commit']['sha'])
 
 
@@ -108,6 +109,10 @@ def same_payload(existing: dict, payload: dict) -> bool:
 def safe_branch_component(value: str) -> str:
     value = re.sub(r'[^a-z0-9._-]+', '-', value.lower()).strip('-')
     return value or 'node'
+
+
+def deterministic_branch(request: dict, node_id: str) -> str:
+    return (f"runtime/{safe_branch_component(request['workflow_id'])}-g{request['generation']}-{safe_branch_component(node_id)}-{request['idempotency_key'][:8]}")[:180]
 
 
 def ensure_ephemeral_request(repo: str, base_ref: str, branch: str, path: str, payload: dict, message: str) -> tuple[str, str]:
@@ -143,7 +148,44 @@ def ensure_append_request(repo: str, branch: str, path: str, payload: dict, mess
         raise
 
 
+def find_open_pull_request(repo: str, branch: str, base_ref: str) -> dict | None:
+    owner = repo.split('/', 1)[0]
+    head = quote(f'{owner}:{branch}', safe='')
+    base = quote(base_ref, safe='')
+    data = gh('GET', f'repos/{repo}/pulls?state=open&head={head}&base={base}&per_page=10')
+    if not isinstance(data, list):
+        raise RuntimeError(f'unexpected pull request listing response for {repo}:{branch}')
+    if len(data) > 1:
+        raise RuntimeError(f'multiple open pull requests for {repo}:{branch}')
+    return data[0] if data else None
+
+
+def ensure_pull_request_request(repo: str, base_ref: str, branch: str, path: str, payload: dict, message: str, title: str, body: str) -> tuple[str, str, int, str]:
+    base_sha = get_ref_sha(repo, base_ref)
+    branch_sha = try_get_ref_sha(repo, branch)
+    if branch_sha is None:
+        create_ref(repo, branch, base_sha)
+        branch_sha = base_sha
+    existing = get_file(repo, branch, path)
+    if existing is not None:
+        if not same_payload(existing, payload):
+            raise RuntimeError(f'idempotency conflict: {repo}:{branch}:{path} already exists with different content')
+        request_head_sha = latest_commit_for_path(repo, branch, path)
+    else:
+        if branch_sha != base_sha:
+            raise RuntimeError(f'idempotency conflict: existing branch {repo}:{branch} moved before request creation')
+        request_head_sha = put_file(repo, branch, path, payload, message)
+    pr = find_open_pull_request(repo, branch, base_ref)
+    if pr is None:
+        pr = gh('POST', f'repos/{repo}/pulls', {'title': title, 'head': branch, 'base': base_ref, 'body': body, 'maintainer_can_modify': False})
+        status = 'invoked'
+    else:
+        status = 'duplicate_ignored'
+    return status, request_head_sha, int(pr['number']), str(pr.get('html_url') or pr.get('url') or '')
+
+
 def main() -> int:
+    global _ACTIVE_TOKEN
     if len(sys.argv) != 3:
         raise SystemExit('usage: dispatch_nodes.py REQUEST.json OUTPUT.json')
     request_path = Path(sys.argv[1])
@@ -162,88 +204,55 @@ def main() -> int:
         dependencies = list(node.get('dependencies') or [])
         missing = [dep for dep in dependencies if dep not in accepted_dependencies]
         if missing:
-            results.append({
-                'id': node_id,
-                'status': 'waiting_dependencies',
-                'dependencies': dependencies,
-                'missing_dependencies': missing,
-            })
+            results.append({'id': node_id, 'status': 'waiting_dependencies', 'dependencies': dependencies, 'missing_dependencies': missing})
             continue
-
         invocation = node['invocation']
-        if invocation.get('mode') != 'request_file':
-            raise RuntimeError(f'{node_id}: only request_file is supported by the current orchestrator blueprint')
+        mode = invocation.get('mode')
+        if mode not in {'request_file', 'pull_request'}:
+            raise RuntimeError(f'{node_id}: unsupported invocation mode {mode!r}')
+        _ACTIVE_TOKEN = (os.environ.get('GH_TOKEN_PULL_REQUESTS') if mode == 'pull_request' else os.environ.get('GH_TOKEN_CONTENTS')) or os.environ.get('GH_TOKEN')
+        if not _ACTIVE_TOKEN:
+            raise RuntimeError(f'{node_id}: missing GitHub token for {mode} transport')
         payload = invocation.get('payload')
         if not isinstance(payload, dict):
-            raise RuntimeError(f'{node_id}: request_file requires a JSON object payload')
+            raise RuntimeError(f'{node_id}: {mode} requires a JSON object payload')
         path = str(invocation.get('path') or '')
         if not path or path.startswith('/') or '..' in Path(path).parts:
             raise RuntimeError(f'{node_id}: unsafe request path')
-
         repo = node['repository']
         branch_mode = invocation.get('branch_mode')
         message = f"runtime: {request['workflow_id']} g{request['generation']} {node_id}"
         event_id = f"{request['idempotency_key']}:{node_id}"
+        branch = ''
+        pr_number = None
+        pr_url = None
 
-        if branch_mode == 'ephemeral_runtime_branch':
-            branch = (
-                f"runtime/{safe_branch_component(request['workflow_id'])}-"
-                f"g{request['generation']}-{safe_branch_component(node_id)}-"
-                f"{request['idempotency_key'][:8]}"
-            )[:180]
-            status, head_sha = ensure_ephemeral_request(
-                repo,
-                str(invocation.get('base_ref') or 'main'),
-                branch,
-                path,
-                payload,
-                message,
-            )
-            temporary_branches.append({'repository': repo, 'branch': branch, 'cleanup_required': True})
-        elif branch_mode == 'append_existing_branch':
+        if branch_mode == 'ephemeral_runtime_branch' and mode == 'request_file':
+            branch = deterministic_branch(request, node_id)
+            status, head_sha = ensure_ephemeral_request(repo, str(invocation.get('base_ref') or 'main'), branch, path, payload, message)
+            temporary_branches.append({'repository': repo, 'branch': branch, 'cleanup_required': True, 'transport_mode': mode})
+        elif branch_mode == 'append_existing_branch' and mode == 'request_file':
             branch = str(invocation.get('target_branch') or invocation.get('base_ref') or '')
             if not branch:
                 raise RuntimeError(f'{node_id}: append_existing_branch requires target_branch')
             status, head_sha = ensure_append_request(repo, branch, path, payload, message)
+        elif branch_mode == 'ephemeral_pull_request_branch' and mode == 'pull_request':
+            branch = deterministic_branch(request, node_id)
+            base_ref = str(invocation.get('base_ref') or 'main')
+            status, head_sha, pr_number, pr_url = ensure_pull_request_request(repo, base_ref, branch, path, payload, message, f"Runtime request {request['workflow_id']} g{request['generation']}", 'Controller-approved Webactueel runtime request. Do not merge this PR; the guarded runtime workflow reads the request from the PR head and writes its result back to the same branch.')
+            temporary_branches.append({'repository': repo, 'branch': branch, 'cleanup_required': True, 'transport_mode': mode, 'pull_request_number': pr_number, 'cleanup_requires_controller_verified_head': True})
         else:
-            raise RuntimeError(f'{node_id}: unsupported branch_mode {branch_mode!r}')
+            raise RuntimeError(f'{node_id}: unsupported branch_mode {branch_mode!r} for mode {mode!r}')
 
-        results.append({
-            'id': node_id,
-            'status': status,
-            'mode': 'request_file',
-            'repository': repo,
-            'workflow': node['workflow'],
-            'branch': branch,
-            'head_sha': head_sha,
-            'request_path': path,
-            'event_id': event_id,
-            'correlation': {
-                'request_path': path,
-                'head_sha': head_sha,
-                'workflow': node['workflow'],
-                'artifact_pattern': node.get('artifact_pattern'),
-                'result': node.get('result'),
-                'result_pattern': node.get('result_pattern'),
-            },
-        })
+        result_entry = {'id': node_id, 'status': status, 'mode': mode, 'repository': repo, 'workflow': node['workflow'], 'branch': branch, 'head_sha': head_sha, 'request_path': path, 'event_id': event_id, 'correlation': {'request_path': path, 'head_sha': head_sha, 'workflow': node['workflow'], 'artifact_pattern': node.get('artifact_pattern'), 'result': node.get('result'), 'result_pattern': node.get('result_pattern')}}
+        if pr_number is not None:
+            result_entry['pull_request'] = {'number': pr_number, 'url': pr_url, 'request_head_sha': head_sha}
+        results.append(result_entry)
 
     invoked = [item for item in results if item['status'] in {'invoked', 'duplicate_ignored'}]
     waiting = [item for item in results if item['status'] == 'waiting_dependencies']
     runtime_state = 'waiting' if invoked or waiting else 'validating'
-    output = {
-        'schema_version': '1.0',
-        'workflow_id': request['workflow_id'],
-        'generation': request['generation'],
-        'idempotency_key': request['idempotency_key'],
-        'registry_fingerprint': request['registry_fingerprint'],
-        'request_sha256': request_sha256,
-        'runtime_state': runtime_state,
-        'return_to': 'webactueel-workflow',
-        'nodes': results,
-        'temporary_branches': temporary_branches,
-        'next_action': 'controller_readback_and_resume',
-    }
+    output = {'schema_version':'1.0','workflow_id':request['workflow_id'],'generation':request['generation'],'idempotency_key':request['idempotency_key'],'registry_fingerprint':request['registry_fingerprint'],'request_sha256':request_sha256,'runtime_state':runtime_state,'return_to':'webactueel-workflow','nodes':results,'temporary_branches':temporary_branches,'next_action':'controller_readback_and_resume'}
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(json.dumps(output, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
     print(json.dumps(output, indent=2, ensure_ascii=False))
