@@ -56,19 +56,33 @@ jobs:
         id: validate
         run: python3 scripts/validate_request.py "${{ steps.request.outputs.path }}" --github-output "$GITHUB_OUTPUT"
 
-      - name: Create short-lived least-privilege GitHub App token
-        id: app-token
+      - name: Create contents-only GitHub App token
+        if: steps.validate.outputs.has_content_nodes == 'true'
+        id: content-token
         uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
         with:
           client-id: ${{ vars.WEB_ACTUEEL_APP_CLIENT_ID }}
           private-key: ${{ secrets.WEB_ACTUEEL_APP_PRIVATE_KEY }}
           owner: Yolol100
-          repositories: ${{ steps.validate.outputs.repositories }}
+          repositories: ${{ steps.validate.outputs.content_repositories }}
           permission-contents: write
+
+      - name: Create request-PR GitHub App token
+        if: steps.validate.outputs.has_pr_nodes == 'true'
+        id: pr-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.WEB_ACTUEEL_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WEB_ACTUEEL_APP_PRIVATE_KEY }}
+          owner: Yolol100
+          repositories: ${{ steps.validate.outputs.pr_repositories }}
+          permission-contents: write
+          permission-pull-requests: write
 
       - name: Dispatch only controller-ready repository nodes
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_TOKEN_CONTENTS: ${{ steps.content-token.outputs.token }}
+          GH_TOKEN_PULL_REQUESTS: ${{ steps.pr-token.outputs.token }}
         run: python3 scripts/dispatch_nodes.py "${{ steps.request.outputs.path }}" transport-plan.json
 
       - name: Validate emitted transport receipt
