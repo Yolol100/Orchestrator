@@ -1,0 +1,221 @@
+{
+  "schema_version": "1.0",
+  "controller": "webactueel-workflow",
+  "adapters": [
+    {
+      "id": "checklist",
+      "repository": "Yolol100/Checklist",
+      "owner_skill": "website-qa-checklist",
+      "project_id": "project-checklist",
+      "role": "public-readonly-qa-evidence-adapter",
+      "workflow": ".github/workflows/run-checklist.yml",
+      "request_file_pattern": "requests/queue/<request_id>.json",
+      "remote_trigger": "push-immutable-request-file",
+      "result_pattern": "results/runs/<request_id>.json",
+      "readback_correlation": {
+        "request_locator": "requests/queue/<request_id>.json@<head_sha>",
+        "match": [
+          "request_id",
+          "immutable request filename",
+          "head_sha",
+          "workflow_run.id"
+        ],
+        "readback": "immutable results/runs/<request_id>.json plus run-scoped evidence where applicable"
+      },
+      "dispatcher": {
+        "support": "request_file",
+        "branch_mode": "ephemeral_runtime_branch",
+        "base_ref": "main",
+        "required_permissions": {
+          "contents": "write"
+        },
+        "default_operation": "test"
+      }
+    },
+    {
+      "id": "designchecker",
+      "repository": "Yolol100/Designchecker",
+      "owner_skill": "design",
+      "project_id": "project-design",
+      "role": "deterministic-design-evidence-adapter",
+      "workflow": ".github/workflows/command.yml",
+      "request_file": "requests/command.json",
+      "remote_trigger": "push-request-file",
+      "result_pattern": "results/<request_id>.json",
+      "readback_correlation": {
+        "request_locator": "requests/command.json@<head_sha>",
+        "match": [
+          "request_id",
+          "owner",
+          "project_id",
+          "source_context.source_set_version",
+          "head_sha",
+          "workflow_run.id"
+        ],
+        "readback": "results/<request_id>.json committed by the matched Actions run"
+      },
+      "dispatcher": {
+        "support": "request_file",
+        "branch_mode": "ephemeral_runtime_branch",
+        "base_ref": "main",
+        "required_permissions": {
+          "contents": "write"
+        },
+        "default_operation": "scan"
+      }
+    },
+    {
+      "id": "elementorjson",
+      "repository": "Yolol100/elementorjson",
+      "owner_skill": "elementor",
+      "project_id": "project-elementor",
+      "role": "elementor-controlled-runtime",
+      "workflow": ".github/workflows/validate.yml",
+      "remote_trigger": "source-change-or-workflow-dispatch",
+      "artifact_pattern": "elementor-runtime-qa",
+      "readback_correlation": {
+        "request_locator": "source/fixture change set @ <head_sha>",
+        "match": [
+          "head_sha",
+          "workflow_run.id",
+          "runtime-contract.json",
+          "changed canonical template/input fingerprints"
+        ],
+        "readback": "run-scoped static-audit + elementor-runtime-qa artifacts"
+      },
+      "dispatcher": {
+        "support": "handoff_required",
+        "reason": "Current workflow_dispatch has no request correlation token and the registered acceptance contract requires source/fixture head-SHA correlation. Extend the adapter contract before generic autonomous dispatch.",
+        "required_permissions": {},
+        "default_operation": "test"
+      }
+    },
+    {
+      "id": "leadscanner",
+      "repository": "Yolol100/Leadscanner",
+      "owner_skill": "leads",
+      "project_id": "project-leads",
+      "role": "formal-browser-scanner",
+      "workflow": ".github/workflows/scan.yml",
+      "request_file": "requests/scan.json",
+      "remote_trigger": "push-request-file",
+      "result": "scan-results/leads-handoff.json",
+      "artifact_pattern": "leadscanner-results-*",
+      "readback_correlation": {
+        "request_locator": "requests/scan.json@<head_sha>",
+        "match": [
+          "request_id",
+          "source_context.source_set_version",
+          "head_sha",
+          "workflow_run.id"
+        ],
+        "readback": "run-scoped artifact -> scan-results/leads-handoff.json -> webactueel-leadscanner-ingest/1.0 envelope"
+      },
+      "dispatcher": {
+        "support": "request_file",
+        "branch_mode": "ephemeral_runtime_branch",
+        "base_ref": "main",
+        "required_permissions": {
+          "contents": "write"
+        },
+        "default_operation": "scan"
+      }
+    },
+    {
+      "id": "programmeren",
+      "repository": "Yolol100/programmeren",
+      "owner_skill": "wordpressqualityarchitect",
+      "project_id": "project-plugin",
+      "role": "wordpress-plugin-audit-harness",
+      "workflow": ".github/workflows/full-plugin-audit.yml",
+      "request_file": ".audit/request.json",
+      "remote_trigger": "push-request-file-or-workflow-dispatch",
+      "artifact_pattern": "wordpress-plugin-audit-*",
+      "readback_correlation": {
+        "request_locator": ".audit/request.json@<head_sha>",
+        "match": [
+          "request_id",
+          "target_repo",
+          "target_ref",
+          "target_path",
+          "head_sha",
+          "workflow_run.id"
+        ],
+        "readback": "run-scoped wordpress-plugin-audit-* artifact"
+      },
+      "dispatcher": {
+        "support": "request_file",
+        "branch_mode": "ephemeral_runtime_branch",
+        "base_ref": "main",
+        "required_permissions": {
+          "contents": "write"
+        },
+        "default_operation": "test"
+      }
+    },
+    {
+      "id": "seochecker",
+      "repository": "Yolol100/seochecker",
+      "owner_skill": "seo",
+      "project_id": "project-seo",
+      "role": "technical-seo-controlled-runtime",
+      "workflow": ".github/workflows/seo-audit.yml",
+      "request_file": "requests/audit.json",
+      "remote_trigger": "push-request-file",
+      "artifact_pattern": "seo-audit-report",
+      "readback_correlation": {
+        "request_locator": "requests/audit.json@<head_sha>",
+        "match": [
+          "request_id",
+          "owner",
+          "project_id",
+          "source_context.source_set_version",
+          "head_sha",
+          "workflow_run.id"
+        ],
+        "readback": "run-scoped seo-audit-report artifact; request_id is re-read from the exact head_sha request snapshot"
+      },
+      "dispatcher": {
+        "support": "request_file",
+        "branch_mode": "ephemeral_runtime_branch",
+        "base_ref": "main",
+        "required_permissions": {
+          "contents": "write"
+        },
+        "default_operation": "scan"
+      }
+    },
+    {
+      "id": "transcriberen",
+      "repository": "Yolol100/transcriberen",
+      "owner_skill": "webactueel-workflow",
+      "owner_mode": "transcribeer",
+      "project_id": "project-transcriberen",
+      "role": "controlled-public-youtube-caption-capability",
+      "workflow": ".github/workflows/transcribe.yml",
+      "request_file_pattern": "requests/queue/<request_id>.json",
+      "remote_trigger": "append-only-request-queue",
+      "artifact_pattern": "transcription-result-<request_id>",
+      "readback_correlation": {
+        "request_locator": "requests/queue/<request_id>.json@<transport_head_sha>",
+        "match": [
+          "request_id",
+          "transport_head_sha",
+          "runtime_head_sha",
+          "workflow_run.id"
+        ],
+        "readback": "Read the run-scoped artifact and validate it against the exact repository result contract at runtime_head_sha."
+      },
+      "dispatcher": {
+        "support": "request_file",
+        "branch_mode": "append_existing_branch",
+        "base_ref": "runtime-requests",
+        "target_branch": "runtime-requests",
+        "required_permissions": {
+          "contents": "write"
+        },
+        "default_operation": "read"
+      }
+    }
+  ]
+}
