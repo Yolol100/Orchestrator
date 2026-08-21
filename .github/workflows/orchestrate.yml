@@ -1,0 +1,99 @@
+name: Webactueel Orchestrator
+
+on:
+  push:
+    branches:
+      - 'runtime/**'
+    paths:
+      - 'requests/queue/*.json'
+  workflow_dispatch:
+    inputs:
+      request_path:
+        description: 'Existing requests/queue/<id>.json on the selected ref'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: webactueel-orchestrator-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  validate-and-dispatch:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout trusted orchestrator
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Resolve exactly one immutable request
+        id: request
+        shell: bash
+        env:
+          MANUAL_REQUEST_PATH: ${{ inputs.request_path }}
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            request_path="$MANUAL_REQUEST_PATH"
+            [[ "$request_path" =~ ^requests/queue/[A-Za-z0-9][A-Za-z0-9._-]{2,159}\.json$ ]]
+            test -f "$request_path"
+          else
+            mapfile -t changes < <(git diff-tree --no-commit-id --name-status -r "$GITHUB_SHA")
+            test "${#changes[@]}" = 1
+            status="${changes[0]%%$'\t'*}"
+            request_path="${changes[0]#*$'\t'}"
+            test "$status" = "A"
+            [[ "$request_path" =~ ^requests/queue/[A-Za-z0-9][A-Za-z0-9._-]{2,159}\.json$ ]]
+          fi
+          echo "path=$request_path" >> "$GITHUB_OUTPUT"
+
+      - name: Validate controller contract and compute token scope
+        id: validate
+        run: python3 scripts/validate_request.py "${{ steps.request.outputs.path }}" --github-output "$GITHUB_OUTPUT"
+
+      - name: Create short-lived least-privilege GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.WEB_ACTUEEL_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WEB_ACTUEEL_APP_PRIVATE_KEY }}
+          owner: Yolol100
+          repositories: ${{ steps.validate.outputs.repositories }}
+          permission-contents: write
+
+      - name: Dispatch only controller-ready repository nodes
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: python3 scripts/dispatch_nodes.py "${{ steps.request.outputs.path }}" transport-plan.json
+
+      - name: Validate emitted transport receipt
+        run: python3 scripts/validate_transport_plan.py "${{ steps.request.outputs.path }}" transport-plan.json
+
+      - name: Write run summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## Webactueel orchestrator"
+            echo
+            echo "- workflow_id: \`${{ steps.validate.outputs.workflow_id }}\`"
+            echo "- generation: \`${{ steps.validate.outputs.generation }}\`"
+            echo "- selected nodes: \`${{ steps.validate.outputs.node_count }}\`"
+            echo "- controller remains: \`webactueel-workflow\`"
+            echo
+            echo "A successful job proves transport only. Domain acceptance still belongs to the registered owner/controller."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload immutable transport receipt
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: webactueel-transport-${{ github.run_id }}
+          path: transport-plan.json
+          if-no-files-found: error
+          retention-days: 14
