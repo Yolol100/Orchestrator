@@ -94,7 +94,8 @@ def main() -> int:
 
     nodes = data.get('nodes') if isinstance(data.get('nodes'), list) else []
     if not nodes: errors.append('nodes')
-    repositories: list[str] = []
+    content_repositories: list[str] = []
+    pr_repositories: list[str] = []
     operations: set[str] = set()
     for node in nodes:
         node_id = node.get('id')
@@ -108,16 +109,18 @@ def main() -> int:
             errors.append(f'registry_mismatch:{node_id}:dispatcher')
             continue
         dispatcher = adapter.get('dispatcher') or {}
-        if dispatcher.get('support') != 'request_file':
+        support = dispatcher.get('support')
+        if support not in {'request_file', 'pull_request'}:
             errors.append(f'unsupported_dispatcher:{node_id}')
             continue
         invocation = node.get('invocation') or {}
-        if invocation.get('mode') != 'request_file': errors.append(f'invocation_mode:{node_id}')
+        if invocation.get('mode') != support: errors.append(f'invocation_mode:{node_id}')
         expected_path = adapter.get('request_file')
         if adapter.get('request_file_pattern'):
             payload = invocation.get('payload') or {}
             request_id = str(payload.get('request_id') or '')
-            if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._-]{2,79}', request_id):
+            request_id_pattern = dispatcher.get('request_id_pattern') or r'^[A-Za-z0-9][A-Za-z0-9._-]{2,79}$'
+            if not re.fullmatch(request_id_pattern, request_id):
                 errors.append(f'invalid_request_id:{node_id}')
             else:
                 expected_path = adapter['request_file_pattern'].replace('<request_id>', request_id)
@@ -129,7 +132,11 @@ def main() -> int:
         if node.get('operation') != dispatcher.get('default_operation'): errors.append(f'operation:{node_id}')
         if not re.fullmatch(r'[a-f0-9]{64}', str(node.get('input_fingerprint', ''))): errors.append(f'input_fingerprint:{node_id}')
         operations.add(node.get('operation'))
-        repositories.append(adapter['repository'].split('/', 1)[1])
+        repo_name = adapter['repository'].split('/', 1)[1]
+        if support == 'pull_request':
+            pr_repositories.append(repo_name)
+        else:
+            content_repositories.append(repo_name)
 
     execution_order = data.get('execution_order') if isinstance(data.get('execution_order'), list) else []
     errors.extend(validate_graph(nodes, execution_order, receipts))
@@ -148,11 +155,12 @@ def main() -> int:
             print('ERROR', error)
         return 1
 
-    unique_repositories = []
-    for repo in repositories:
-        if repo not in unique_repositories:
-            unique_repositories.append(repo)
-    append_output(args.github_output, 'repositories', '\n'.join(unique_repositories))
+    unique_content_repositories = list(dict.fromkeys(content_repositories))
+    unique_pr_repositories = list(dict.fromkeys(pr_repositories))
+    append_output(args.github_output, 'content_repositories', '\n'.join(unique_content_repositories))
+    append_output(args.github_output, 'pr_repositories', '\n'.join(unique_pr_repositories))
+    append_output(args.github_output, 'has_content_nodes', 'true' if unique_content_repositories else 'false')
+    append_output(args.github_output, 'has_pr_nodes', 'true' if unique_pr_repositories else 'false')
     append_output(args.github_output, 'node_count', str(len(nodes)))
     append_output(args.github_output, 'workflow_id', str(data['workflow_id']))
     append_output(args.github_output, 'generation', str(data['generation']))
