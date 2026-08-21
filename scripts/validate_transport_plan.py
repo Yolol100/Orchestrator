@@ -49,12 +49,21 @@ def main() -> int:
             continue
         if item.get('repository') != source.get('repository') or item.get('workflow') != source.get('workflow'):
             errors.append(f'node_identity:{node_id}')
-        if item.get('request_path') != (source.get('invocation') or {}).get('path'):
+        invocation = source.get('invocation') or {}
+        if item.get('mode') != invocation.get('mode'):
+            errors.append(f'invocation_mode:{node_id}')
+        if item.get('request_path') != invocation.get('path'):
             errors.append(f'request_path:{node_id}')
         if not re.fullmatch(r'[0-9a-f]{40}', str(item.get('head_sha') or '')):
             errors.append(f'head_sha:{node_id}')
         if item.get('event_id') != f"{request['idempotency_key']}:{node_id}":
             errors.append(f'event_id:{node_id}')
+        if invocation.get('mode') == 'pull_request':
+            pr = item.get('pull_request') if isinstance(item.get('pull_request'), dict) else {}
+            if not isinstance(pr.get('number'), int) or pr.get('number', 0) < 1:
+                errors.append(f'pull_request_number:{node_id}')
+            if pr.get('request_head_sha') != item.get('head_sha'):
+                errors.append(f'pull_request_head:{node_id}')
 
     temp = transport.get('temporary_branches') if isinstance(transport.get('temporary_branches'), list) else []
     for entry in temp:
