@@ -272,9 +272,12 @@ def main() -> int:
             status, head_sha = ensure_ephemeral_request(
                 repo, str(invocation.get('base_ref') or 'main'), branch, path, payload, message
             )
-            temporary_branches.append({
+            cleanup_entry = {
                 'repository': repo, 'branch': branch, 'cleanup_required': True, 'transport_mode': mode
-            })
+            }
+            if bool((node.get('dispatcher') or {}).get('cleanup_requires_controller_verified_head')):
+                cleanup_entry['cleanup_requires_controller_verified_head'] = True
+            temporary_branches.append(cleanup_entry)
         elif branch_mode == 'append_existing_branch' and mode == 'request_file':
             branch = str(invocation.get('target_branch') or invocation.get('base_ref') or '')
             if not branch:

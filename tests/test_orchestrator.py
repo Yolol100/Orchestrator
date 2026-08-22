@@ -208,23 +208,44 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(status, 'duplicate_ignored')
         self.assertEqual(sha, 'f' * 40)
 
-    def test_handoff_adapter_is_rejected(self):
-        adapter = self.adapters['elementorjson']
-        node = {
-            'id': 'elementorjson', 'repository': adapter['repository'], 'owner_skill': adapter['owner_skill'],
-            'project_id': adapter['project_id'], 'workflow': adapter['workflow'], 'request_file': adapter.get('request_file'),
-            'request_file_pattern': adapter.get('request_file_pattern'), 'result': adapter.get('result'), 'result_pattern': adapter.get('result_pattern'),
-            'artifact_pattern': adapter.get('artifact_pattern'), 'remote_trigger': adapter.get('remote_trigger'), 'dependencies': [],
-            'operation': 'test', 'input_fingerprint': 'b' * 64, 'dispatcher': adapter['dispatcher'],
-            'invocation': {'mode': 'request_file', 'path': None, 'base_ref': 'main', 'branch_mode': 'ephemeral_runtime_branch', 'target_branch': None, 'payload': {}},
+    def test_elementor_adapter_uses_correlated_request_transport(self):
+        payload = {
+            'schema_version': '1.0',
+            'request_id': 'elementor-123',
+            'enabled': True,
+            'owner': 'elementor',
+            'project_id': 'project-elementor',
+            'for': 'controlled runtime proof',
+            'task': 'run pinned Elementor QA',
+            'why': 'correlate exact request head to child evidence',
+            'trigger_when': 'controller requests controlled runtime evidence',
+            'do_not_trigger_when': 'production mutation or confidential input',
+            'requested_by': 'webactueel-workflow',
+            'source_context': {'project_id': 'project-elementor', 'source_set_version': '2026-08-15.2-controlled-runtime-hardened'},
         }
+        node = self.make_node('elementorjson', payload)
         request = self.make_request([node], ['elementorjson'])
         with tempfile.TemporaryDirectory() as raw:
-            p = Path(raw) / 'request.json'
-            p.write_text(json.dumps(request), encoding='utf-8')
-            proc = subprocess.run(['python3', str(ROOT / 'scripts' / 'validate_request.py'), str(p)], capture_output=True, text=True)
-            self.assertNotEqual(proc.returncode, 0)
-            self.assertIn('unsupported_dispatcher:elementorjson', proc.stdout)
+            td = Path(raw)
+            request_path = td / 'request.json'
+            request_path.write_text(json.dumps(request), encoding='utf-8')
+            proc = subprocess.run(['python3', str(ROOT / 'scripts' / 'validate_request.py'), str(request_path)], capture_output=True, text=True)
+            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+            module = load_dispatch_module()
+            module.ensure_ephemeral_request = lambda *args: ('invoked', 'd' * 40)
+            old_argv = sys.argv
+            try:
+                sys.argv = ['dispatch_nodes.py', str(request_path), str(td / 'transport.json')]
+                self.assertEqual(module.main(), 0)
+            finally:
+                sys.argv = old_argv
+            transport = json.loads((td / 'transport.json').read_text(encoding='utf-8'))
+            item = transport['nodes'][0]
+            self.assertEqual(item['mode'], 'request_file')
+            self.assertEqual(item['workflow'], '.github/workflows/orchestrator-request.yml')
+            self.assertEqual(item['request_path'], 'requests/runtime.json')
+            self.assertEqual(item['correlation']['result_pattern'], 'results/runtime/<request_id>.json')
+            self.assertTrue(transport['temporary_branches'][0]['cleanup_requires_controller_verified_head'])
 
     def test_cleanup_wordpress_branch_requires_controller_verified_current_head(self):
         path = ROOT / 'scripts' / 'cleanup_runtime_branches.py'
