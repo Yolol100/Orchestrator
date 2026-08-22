@@ -1,0 +1,47 @@
+name: Orchestrator CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Verify adapter registry fingerprint
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          registry = json.loads(Path('config/adapter-registry.json').read_text(encoding='utf-8'))
+          canonical = json.dumps(registry, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+          actual = hashlib.sha256(canonical).hexdigest()
+          expected = Path('config/adapter-registry.sha256').read_text(encoding='utf-8').strip()
+          if actual != expected:
+              raise SystemExit(f'adapter registry fingerprint mismatch: expected={expected} actual={actual}')
+          print(actual)
+          PY
+
+      - name: Compile Python
+        run: python3 -m py_compile scripts/*.py tests/*.py
+
+      - name: Run regression tests
+        run: python3 -m unittest discover -s tests -v
