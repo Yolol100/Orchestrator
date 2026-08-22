@@ -14,7 +14,7 @@ Generieke GitHub-transportlaag voor repositoryplannen die al door `webactueel-wo
 
 ## Benodigd
 
-Maak een dedicated repository, bijvoorbeeld `Yolol100/webactueel-orchestrator`, en installeer een GitHub App op uitsluitend de specialistrepositories die de controller mag bedienen.
+De huidige Webactueel-deployment gebruikt `Yolol100/Orchestrator`. Installeer de GitHub App uitsluitend op de specialistrepositories die de controller mag bedienen.
 
 Repository variable:
 
@@ -24,7 +24,7 @@ Actions secret:
 
 - `WEB_ACTUEEL_APP_PRIVATE_KEY`
 
-De huidige blueprint gebruikt request-file transport en vraagt voor het kortlevende installation token uitsluitend `contents: write` op de gevalideerde doelrepositories. Het gewone workflow-`GITHUB_TOKEN` blijft `contents: read` voor deze repository.
+De blueprint splitst least-privilege tokens per transportvorm: gewone request-file adapters krijgen alleen `contents: write`; de guarded WordPress request-PR adapter krijgt op alleen `wordpressconnector` `contents: write` + `pull_requests: write`. Het gewone workflow-`GITHUB_TOKEN` blijft `contents: read` voor deze repository.
 
 ## Request starten
 
@@ -43,6 +43,7 @@ Voorkeursroute vanuit ChatGPT/GitHub connector:
 - `invoked` is nooit hetzelfde als `accepted`.
 - Een dependency is alleen voldaan wanneer het request een controller-issued `dependency_receipt` bevat.
 - `elementorjson` is bewust niet generiek dispatchbaar zolang het huidige adaptercontract geen sterke requestcorrelatie exposeert.
+- `wordpressconnector` gebruikt bewust een request-PR op een tijdelijke branch; de Orchestrator verandert dit niet in een gewone pushroute en een WordPress-runtime node vereist `approval_before_write` of strenger.
 - `transcriberen` gebruikt zijn eigen append-only `runtime-requests` queue; de dispatcher maakt daarvoor geen nieuwe runtimebranch.
 - Klant-/projectwaarheid hoort niet op `main`. Tijdelijke runtimebranches worden pas na readback/acceptatie opgeruimd.
 - Een groene GitHub Action bewijst transport, niet vakinhoudelijke correctheid.
@@ -58,4 +59,4 @@ Gebruik daarna een echte staging-/read-only smoke voordat write- of releasepaden
 
 ## Opruimen van tijdelijke runtimebranches
 
-Na controller-closure kun je `python3 scripts/cleanup_runtime_branches.py transport-plan.json --confirm-workflow-id <WF-ID>` uitvoeren. De helper verwijdert alleen `runtime/*` branches waarvan de huidige SHA exact overeenkomt met de transportreceipt; verplaatste of vaste branches worden geweigerd.
+Na controller-closure kun je `python3 scripts/cleanup_runtime_branches.py transport-plan.json --confirm-workflow-id <WF-ID>` uitvoeren. Gewone requestbranches worden alleen verwijderd wanneer de huidige SHA nog exact overeenkomt met de transportreceipt. Een guarded WordPress request-PR mag na gevalideerde result-writeback bewust zijn verplaatst; lever daarvoor een apart controller-geverifieerd JSON-bestand aan met `--verified-heads verified-heads.json`, bijvoorbeeld `{"Yolol100/wordpressconnector:runtime/...": "<current-40-hex-sha>"}`. Zonder die expliciete actuele SHA faalt cleanup gesloten. Vaste branches worden nooit verwijderd.
