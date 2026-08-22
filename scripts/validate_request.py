@@ -48,7 +48,6 @@ def validate_graph(nodes: list[dict], execution_order: list[str], receipts: dict
                 errors.append(f'unknown_dependency:{node_id}:{dep}')
     visiting: set[str] = set()
     visited: set[str] = set()
-
     def visit(node_id: str) -> None:
         if node_id in visited or node_id not in graph:
             return
@@ -61,7 +60,6 @@ def validate_graph(nodes: list[dict], execution_order: list[str], receipts: dict
                 visit(dep)
         visiting.remove(node_id)
         visited.add(node_id)
-
     for node_id in execution_order:
         visit(node_id)
     return errors
@@ -103,7 +101,7 @@ def main() -> int:
         if not adapter:
             errors.append(f'unknown_repo:{node_id}')
             continue
-        for key in ('repository','owner_skill','project_id','workflow','request_file','request_file_pattern','result','result_pattern','artifact_pattern','remote_trigger'):
+        for key in ('repository','owner_skill','project_id','workflow','executor_workflow','request_file','request_file_pattern','result','result_pattern','artifact_pattern','remote_trigger'):
             if node.get(key) != adapter.get(key): errors.append(f'registry_mismatch:{node_id}:{key}')
         if node.get('dispatcher') != adapter.get('dispatcher'):
             errors.append(f'registry_mismatch:{node_id}:dispatcher')
@@ -120,10 +118,8 @@ def main() -> int:
             payload = invocation.get('payload') or {}
             request_id = str(payload.get('request_id') or '')
             request_id_pattern = dispatcher.get('request_id_pattern') or r'^[A-Za-z0-9][A-Za-z0-9._-]{2,79}$'
-            if not re.fullmatch(request_id_pattern, request_id):
-                errors.append(f'invalid_request_id:{node_id}')
-            else:
-                expected_path = adapter['request_file_pattern'].replace('<request_id>', request_id)
+            if not re.fullmatch(request_id_pattern, request_id): errors.append(f'invalid_request_id:{node_id}')
+            else: expected_path = adapter['request_file_pattern'].replace('<request_id>', request_id)
         if invocation.get('path') != expected_path: errors.append(f'request_path:{node_id}')
         if invocation.get('branch_mode') != dispatcher.get('branch_mode'): errors.append(f'branch_mode:{node_id}')
         if invocation.get('base_ref') != dispatcher.get('base_ref'): errors.append(f'base_ref:{node_id}')
@@ -133,10 +129,8 @@ def main() -> int:
         if not re.fullmatch(r'[a-f0-9]{64}', str(node.get('input_fingerprint', ''))): errors.append(f'input_fingerprint:{node_id}')
         operations.add(node.get('operation'))
         repo_name = adapter['repository'].split('/', 1)[1]
-        if support == 'pull_request':
-            pr_repositories.append(repo_name)
-        else:
-            content_repositories.append(repo_name)
+        if support == 'pull_request': pr_repositories.append(repo_name)
+        else: content_repositories.append(repo_name)
 
     execution_order = data.get('execution_order') if isinstance(data.get('execution_order'), list) else []
     errors.extend(validate_graph(nodes, execution_order, receipts))
@@ -151,8 +145,7 @@ def main() -> int:
 
     if errors:
         print('GITHUB DISPATCH REQUEST: FAIL')
-        for error in sorted(set(errors)):
-            print('ERROR', error)
+        for error in sorted(set(errors)): print('ERROR', error)
         return 1
 
     unique_content_repositories = list(dict.fromkeys(content_repositories))
@@ -166,7 +159,6 @@ def main() -> int:
     append_output(args.github_output, 'generation', str(data['generation']))
     print('GITHUB DISPATCH REQUEST: PASS')
     return 0
-
 
 if __name__ == '__main__':
     raise SystemExit(main())
