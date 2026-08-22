@@ -45,3 +45,60 @@ jobs:
 
       - name: Run regression tests
         run: python3 -m unittest discover -s tests -v
+
+  github-app-readiness:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout trusted registry
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compute registered repository scope
+        id: scope
+        shell: bash
+        run: |
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+          import json
+          from pathlib import Path
+          registry = json.loads(Path('config/adapter-registry.json').read_text(encoding='utf-8'))
+          repos = sorted({item['repository'].split('/', 1)[1] for item in registry['adapters']})
+          if not repos:
+              raise SystemExit('adapter registry contains no repositories')
+          print('repositories=' + ','.join(repos))
+          print('count=' + str(len(repos)))
+          PY
+
+      - name: Require GitHub App credentials
+        env:
+          APP_CLIENT_ID: ${{ vars.WEB_ACTUEEL_APP_CLIENT_ID }}
+          APP_PRIVATE_KEY: ${{ secrets.WEB_ACTUEEL_APP_PRIVATE_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$APP_CLIENT_ID" || { echo 'WEB_ACTUEEL_APP_CLIENT_ID is not configured'; exit 1; }
+          test -n "$APP_PRIVATE_KEY" || { echo 'WEB_ACTUEEL_APP_PRIVATE_KEY is not configured'; exit 1; }
+
+      - name: Create read-only GitHub App readiness token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.WEB_ACTUEEL_APP_CLIENT_ID }}
+          private-key: ${{ secrets.WEB_ACTUEEL_APP_PRIVATE_KEY }}
+          owner: Yolol100
+          repositories: ${{ steps.scope.outputs.repositories }}
+          permission-contents: read
+
+      - name: Verify App access to every registered repository
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          REPOSITORIES: ${{ steps.scope.outputs.repositories }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          IFS=',' read -ra repos <<< "$REPOSITORIES"
+          for repo in "${repos[@]}"; do
+            test "$(gh api "repos/Yolol100/$repo" -H 'X-GitHub-Api-Version: 2026-03-10' --jq .full_name)" = "Yolol100/$repo"
+          done
+          echo "GitHub App read-only readiness verified for ${#repos[@]} registered repositories."
