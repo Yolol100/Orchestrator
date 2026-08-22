@@ -12,11 +12,7 @@
       "request_file_pattern": "requests/queue/<request_id>.json",
       "remote_trigger": "push-immutable-request-file",
       "result_pattern": "results/runs/<request_id>.json",
-      "readback_correlation": {
-        "request_locator": "requests/queue/<request_id>.json@<head_sha>",
-        "match": ["request_id", "immutable request filename", "head_sha", "workflow_run.id"],
-        "readback": "immutable results/runs/<request_id>.json plus run-scoped evidence where applicable"
-      },
+      "readback_correlation": {"request_locator":"requests/queue/<request_id>.json@<head_sha>","match":["request_id","immutable request filename","head_sha","workflow_run.id"],"readback":"immutable results/runs/<request_id>.json plus run-scoped evidence where applicable"},
       "dispatcher": {"support":"request_file","branch_mode":"ephemeral_runtime_branch","base_ref":"main","required_permissions":{"contents":"write"},"default_operation":"test"}
     },
     {
@@ -105,10 +101,11 @@
       "project_id": "project-plugin",
       "role": "wordpress-live-runtime-bridge",
       "workflow": ".github/workflows/wordpress-request.yml",
+      "executor_workflow": ".github/workflows/wordpress-execute.yml",
       "request_file_pattern": "requests/<request_id>.json",
       "remote_trigger": "pull-request-request-file",
       "result_pattern": "results/<request_id>.json",
-      "readback_correlation": {"request_locator":"requests/<request_id>.json@<request_head_sha> in pull request <pr_number>","match":["request_id","pull_request.number","workflow_run.head_sha == request_head_sha","result request_id","result branch is same PR head"],"readback":"matched PR-triggered workflow run -> results/<request_id>.json on the same PR branch -> controller/domain-owner acceptance"},
+      "readback_correlation": {"request_locator":"requests/<request_id>.json@<request_head_sha> in pull request <pr_number>","match":["request_id","pull_request.number","wordpress-request.yml guard run is tied to the request PR/head","wordpress-execute.yml run is dispatched from trusted main with inputs.pr_number == pull_request.number","wordpress-execute.yml inputs.expected_head_sha == request_head_sha","result commit is written to the same PR branch with parent == request_head_sha","result request_id matches the immutable request"],"readback":"PR request/head -> secretless wordpress-request.yml guard -> trusted main wordpress-execute.yml workflow_dispatch -> authenticated HTTPS REST execution -> results/<request_id>.json committed to the same PR branch -> controller/domain-owner acceptance"},
       "dispatcher": {"support":"pull_request","branch_mode":"ephemeral_pull_request_branch","base_ref":"main","request_id_pattern":"^[A-Za-z0-9][A-Za-z0-9._-]{7,99}$","required_permissions":{"contents":"write","pull_requests":"write"},"default_operation":"write"}
     }
   ]
