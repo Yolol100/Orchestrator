@@ -14,7 +14,7 @@ Generieke GitHub-transportlaag voor repositoryplannen die al door `webactueel-wo
 
 ## Benodigd
 
-Maak een dedicated repository, bijvoorbeeld `Yolol100/webactueel-orchestrator`, en installeer een GitHub App op uitsluitend de specialistrepositories die de controller mag bedienen.
+De huidige Webactueel-deployment gebruikt `Yolol100/Orchestrator`. Installeer de GitHub App uitsluitend op de specialistrepositories die de controller mag bedienen.
 
 Repository variable:
 
@@ -24,7 +24,9 @@ Actions secret:
 
 - `WEB_ACTUEEL_APP_PRIVATE_KEY`
 
-De huidige blueprint gebruikt request-file transport en vraagt voor het kortlevende installation token uitsluitend `contents: write` op de gevalideerde doelrepositories. Het gewone workflow-`GITHUB_TOKEN` blijft `contents: read` voor deze repository.
+De blueprint splitst least-privilege tokens per transportvorm: gewone request-file adapters krijgen alleen `contents: write`; de guarded WordPress request-PR adapter krijgt op alleen `wordpressconnector` `contents: write` + `pull_requests: write`. Het gewone workflow-`GITHUB_TOKEN` blijft `contents: read` voor deze repository. WordPress-runtimecredentials blijven uitsluitend in `wordpressconnector` en worden pas door de trusted `wordpress-execute.yml` op `main` gebruikt.
+
+Voor de huidige standaard WordPress-route is geen VPS of persistente self-hosted GitHub runner nodig. Vereist zijn een private `wordpressconnector` repository, exact `WPCONNECTOR_TRUSTED_REQUEST_ACTOR`, een geïnstalleerde WordPress Connector-plugin, `WPCONNECTOR_SITE_URL` op HTTPS, `WPCONNECTOR_REST_USERNAME`, `WPCONNECTOR_REST_APPLICATION_PASSWORD`, een geslaagde authenticated healthcheck en de taakrelevante WordPress Connector safety gates.
 
 ## Request starten
 
@@ -43,6 +45,7 @@ Voorkeursroute vanuit ChatGPT/GitHub connector:
 - `invoked` is nooit hetzelfde als `accepted`.
 - Een dependency is alleen voldaan wanneer het request een controller-issued `dependency_receipt` bevat.
 - `elementorjson` is bewust niet generiek dispatchbaar zolang het huidige adaptercontract geen sterke requestcorrelatie exposeert.
+- `wordpressconnector` gebruikt bewust een request-PR op een tijdelijke branch; de Orchestrator verandert dit niet in een gewone pushroute en een WordPress-runtime node vereist `approval_before_write` of strenger. De PR-workflow is een secretless guard; de echte uitvoering gebeurt daarna via `wordpress-execute.yml` vanaf vertrouwde `main` op GitHub-hosted `ubuntu-latest` over authenticated HTTPS REST.
 - `transcriberen` gebruikt zijn eigen append-only `runtime-requests` queue; de dispatcher maakt daarvoor geen nieuwe runtimebranch.
 - Klant-/projectwaarheid hoort niet op `main`. Tijdelijke runtimebranches worden pas na readback/acceptatie opgeruimd.
 - Een groene GitHub Action bewijst transport, niet vakinhoudelijke correctheid.
