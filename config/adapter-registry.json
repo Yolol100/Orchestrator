@@ -14,21 +14,14 @@
       "result_pattern": "results/runs/<request_id>.json",
       "readback_correlation": {
         "request_locator": "requests/queue/<request_id>.json@<head_sha>",
-        "match": [
-          "request_id",
-          "immutable request filename",
-          "head_sha",
-          "workflow_run.id"
-        ],
+        "match": ["request_id", "immutable request filename", "head_sha", "workflow_run.id"],
         "readback": "immutable results/runs/<request_id>.json plus run-scoped evidence where applicable"
       },
       "dispatcher": {
         "support": "request_file",
         "branch_mode": "ephemeral_runtime_branch",
         "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
+        "required_permissions": {"contents": "write"},
         "default_operation": "test"
       }
     },
@@ -44,23 +37,14 @@
       "result_pattern": "results/<request_id>.json",
       "readback_correlation": {
         "request_locator": "requests/command.json@<head_sha>",
-        "match": [
-          "request_id",
-          "owner",
-          "project_id",
-          "source_context.source_set_version",
-          "head_sha",
-          "workflow_run.id"
-        ],
+        "match": ["request_id", "owner", "project_id", "source_context.source_set_version", "head_sha", "workflow_run.id"],
         "readback": "results/<request_id>.json committed by the matched Actions run"
       },
       "dispatcher": {
         "support": "request_file",
         "branch_mode": "ephemeral_runtime_branch",
         "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
+        "required_permissions": {"contents": "write"},
         "default_operation": "scan"
       }
     },
@@ -77,27 +61,14 @@
       "artifact_pattern": "elementor-orchestrator-correlation",
       "readback_correlation": {
         "request_locator": "requests/runtime.json@<request_head_sha>",
-        "match": [
-          "request_id",
-          "owner",
-          "project_id",
-          "source_context.source_set_version",
-          "request_head_sha",
-          "child_run.id",
-          "child_run.head_sha == request_head_sha",
-          "runtime_contract_sha256",
-          "template_fingerprints",
-          "required child artifact names"
-        ],
+        "match": ["request_id", "owner", "project_id", "source_context.source_set_version", "request_head_sha", "child_run.id", "child_run.head_sha == request_head_sha", "runtime_contract_sha256", "template_fingerprints", "required child artifact names"],
         "readback": "immutable results/runtime/<request_id>.json written only after the exact-head child validate.yml run succeeds with static-audit and elementor-runtime-qa artifacts"
       },
       "dispatcher": {
         "support": "request_file",
         "branch_mode": "ephemeral_runtime_branch",
         "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
+        "required_permissions": {"contents": "write"},
         "default_operation": "test",
         "cleanup_requires_controller_verified_head": true
       }
@@ -107,7 +78,9 @@
       "repository": "Yolol100/Leadscanner",
       "owner_skill": "leads",
       "project_id": "project-leads",
-      "role": "formal-browser-scanner",
+      "role": "optional-explicit-website-audit-scanner",
+      "activation": "explicit_audit_or_technical_scan_only",
+      "normal_starteractie_route": false,
       "workflow": ".github/workflows/scan.yml",
       "request_file": "requests/scan.json",
       "remote_trigger": "push-request-file",
@@ -115,21 +88,14 @@
       "artifact_pattern": "leadscanner-results-*",
       "readback_correlation": {
         "request_locator": "requests/scan.json@<head_sha>",
-        "match": [
-          "request_id",
-          "source_context.source_set_version",
-          "head_sha",
-          "workflow_run.id"
-        ],
+        "match": ["request_id", "source_context.source_set_version", "head_sha", "workflow_run.id"],
         "readback": "run-scoped artifact -> scan-results/leads-handoff.json -> webactueel-leadscanner-ingest/1.0 envelope"
       },
       "dispatcher": {
         "support": "request_file",
         "branch_mode": "ephemeral_runtime_branch",
         "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
+        "required_permissions": {"contents": "write"},
         "default_operation": "scan"
       }
     },
@@ -145,23 +111,14 @@
       "artifact_pattern": "wordpress-plugin-audit-*",
       "readback_correlation": {
         "request_locator": ".audit/request.json@<head_sha>",
-        "match": [
-          "request_id",
-          "target_repo",
-          "target_ref",
-          "target_path",
-          "head_sha",
-          "workflow_run.id"
-        ],
+        "match": ["request_id", "target_repo", "target_ref", "target_path", "head_sha", "workflow_run.id"],
         "readback": "run-scoped wordpress-plugin-audit-* artifact"
       },
       "dispatcher": {
         "support": "request_file",
         "branch_mode": "ephemeral_runtime_branch",
         "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
+        "required_permissions": {"contents": "write"},
         "default_operation": "test"
       }
     },
@@ -177,23 +134,14 @@
       "artifact_pattern": "seo-audit-report",
       "readback_correlation": {
         "request_locator": "requests/audit.json@<head_sha>",
-        "match": [
-          "request_id",
-          "owner",
-          "project_id",
-          "source_context.source_set_version",
-          "head_sha",
-          "workflow_run.id"
-        ],
+        "match": ["request_id", "owner", "project_id", "source_context.source_set_version", "head_sha", "workflow_run.id"],
         "readback": "run-scoped seo-audit-report artifact; request_id is re-read from the exact head_sha request snapshot"
       },
       "dispatcher": {
         "support": "request_file",
         "branch_mode": "ephemeral_runtime_branch",
         "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
+        "required_permissions": {"contents": "write"},
         "default_operation": "scan"
       }
     },
@@ -210,12 +158,7 @@
       "artifact_pattern": "transcription-result-<request_id>",
       "readback_correlation": {
         "request_locator": "requests/queue/<request_id>.json@<transport_head_sha>",
-        "match": [
-          "request_id",
-          "transport_head_sha",
-          "runtime_head_sha",
-          "workflow_run.id"
-        ],
+        "match": ["request_id", "transport_head_sha", "runtime_head_sha", "workflow_run.id"],
         "readback": "Read the run-scoped artifact and validate it against the exact repository result contract at runtime_head_sha."
       },
       "dispatcher": {
@@ -223,9 +166,7 @@
         "branch_mode": "append_existing_branch",
         "base_ref": "runtime-requests",
         "target_branch": "runtime-requests",
-        "required_permissions": {
-          "contents": "write"
-        },
+        "required_permissions": {"contents": "write"},
         "default_operation": "read"
       }
     },
@@ -241,13 +182,7 @@
       "result_pattern": "results/<request_id>.json",
       "readback_correlation": {
         "request_locator": "requests/<request_id>.json@<request_head_sha> in pull request <pr_number>",
-        "match": [
-          "request_id",
-          "pull_request.number",
-          "workflow_run.head_sha == request_head_sha",
-          "result request_id",
-          "result branch is same PR head"
-        ],
+        "match": ["request_id", "pull_request.number", "workflow_run.head_sha == request_head_sha", "result request_id", "result branch is same PR head"],
         "readback": "matched PR-triggered workflow run -> results/<request_id>.json on the same PR branch -> controller/domain-owner acceptance"
       },
       "dispatcher": {
@@ -255,10 +190,7 @@
         "branch_mode": "ephemeral_pull_request_branch",
         "base_ref": "main",
         "request_id_pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{7,99}$",
-        "required_permissions": {
-          "contents": "write",
-          "pull_requests": "write"
-        },
+        "required_permissions": {"contents": "write", "pull_requests": "write"},
         "default_operation": "write"
       }
     }
