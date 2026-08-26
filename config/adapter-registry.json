@@ -74,32 +74,6 @@
       }
     },
     {
-      "id": "leadscanner",
-      "repository": "Yolol100/Leadscanner",
-      "owner_skill": "leads",
-      "project_id": "project-leads",
-      "role": "optional-explicit-website-audit-scanner",
-      "activation": "explicit_audit_or_technical_scan_only",
-      "normal_starteractie_route": false,
-      "workflow": ".github/workflows/scan.yml",
-      "request_file": "requests/scan.json",
-      "remote_trigger": "push-request-file",
-      "result": "scan-results/leads-handoff.json",
-      "artifact_pattern": "leadscanner-results-*",
-      "readback_correlation": {
-        "request_locator": "requests/scan.json@<head_sha>",
-        "match": ["request_id", "source_context.source_set_version", "head_sha", "workflow_run.id"],
-        "readback": "run-scoped artifact -> scan-results/leads-handoff.json -> webactueel-leadscanner-ingest/1.0 envelope"
-      },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "ephemeral_runtime_branch",
-        "base_ref": "main",
-        "required_permissions": {"contents": "write"},
-        "default_operation": "scan"
-      }
-    },
-    {
       "id": "programmeren",
       "repository": "Yolol100/programmeren",
       "owner_skill": "wordpressqualityarchitect",
