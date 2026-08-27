@@ -40,8 +40,10 @@ jobs:
           print(actual)
           PY
 
-      - name: Compile Python
-        run: python3 -m py_compile scripts/*.py tests/*.py
-
-      - name: Run regression tests
-        run: python3 -m unittest discover -s tests -v
+      - name: Run documented compile and regression checks
+        uses: stateful/runme-action@d88fd274f74c3fda03d0bf7089ce93d24c8adbaa # v3
+        with:
+          version: v3.17.2
+          workflows: |
+            compile-python
+            regression-tests
