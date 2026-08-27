@@ -50,10 +50,14 @@ Voorkeursroute vanuit ChatGPT/GitHub connector:
 
 ## Lokale controle
 
-```bash
-python3 -m unittest discover -s tests -v
+Dezelfde veilige controle wordt door CI uit deze README uitgevoerd. Met Runme is de cel direct uitvoerbaar; zonder Runme kun je de twee commando's gewoon handmatig uitvoeren.
+
+```bash {"name":"local-checks","interactive":"false"}
 python3 -m py_compile scripts/*.py tests/*.py
+python3 -m unittest discover -s tests -v
 ```
+
+Met Runme: `runme run local-checks`. Runme is lokaal optioneel en voegt geen nieuwe projectwaarheid of releaseclaim toe.
 
 Gebruik daarna een echte staging-/read-only smoke voordat write- of releasepaden worden toegestaan.
 
