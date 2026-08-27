@@ -50,9 +50,14 @@ Voorkeursroute vanuit ChatGPT/GitHub connector:
 
 ## Lokale controle
 
-```bash
-python3 -m unittest discover -s tests -v
+Deze commando's zijn ook de CI-bron. De Runme Action voert exact dezelfde benoemde Markdown-cellen uit, zodat README en CI niet uit elkaar gaan. Runme is lokaal optioneel; de commando's blijven gewone shellcommando's.
+
+```bash {"name":"compile-python"}
 python3 -m py_compile scripts/*.py tests/*.py
+```
+
+```bash {"name":"regression-tests"}
+python3 -m unittest discover -s tests -v
 ```
 
 Gebruik daarna een echte staging-/read-only smoke voordat write- of releasepaden worden toegestaan.
