@@ -42,7 +42,7 @@ Voorkeursroute vanuit ChatGPT/GitHub connector:
 
 - `invoked` is nooit hetzelfde als `accepted`.
 - Een dependency is alleen voldaan wanneer het request een controller-issued `dependency_receipt` bevat.
-- `elementorjson` is bewust niet generiek dispatchbaar zolang het huidige adaptercontract geen sterke requestcorrelatie exposeert.
+- `elementorjson` gebruikt uitsluitend de geregistreerde gecorreleerde request-file-route via `requests/runtime.json`; dit is geen vrije generieke dispatchroute en acceptatie vereist de exacte request-/resultcorrelatie.
 - `wordpressconnector` gebruikt bewust een request-PR op een tijdelijke branch; de Orchestrator verandert dit niet in een gewone pushroute en een WordPress-runtime node vereist `approval_before_write` of strenger.
 - `transcriberen` gebruikt zijn eigen append-only `runtime-requests` queue; de dispatcher maakt daarvoor geen nieuwe runtimebranch.
 - Klant-/projectwaarheid hoort niet op `main`. Tijdelijke runtimebranches worden pas na readback/acceptatie opgeruimd.
