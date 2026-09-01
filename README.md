@@ -38,6 +38,12 @@ Voorkeursroute vanuit ChatGPT/GitHub connector:
 
 `workflow_dispatch` is alleen bedoeld voor handmatige replay van een bestaand requestbestand op de geselecteerde ref. Idempotency voorkomt dubbele side effects.
 
+## Wanneer deze dispatcher niet nodig is
+
+Kies vóór deze repository de lichtste native route die dezelfde evidence/execution-class volledig kan leveren. Een exacte connected app of blootgestelde site tool/WebMCP gaat vóór generieke browserautomatisering; een native Work/Codex-browser gaat vóór een repo-adapter wanneer persistente repo-evidence niet nodig is. Codex desktop kan meerdere repositories in één project gebruiken, dus repo-aantal alleen activeert deze dispatcher niet.
+
+Gebruik deze Orchestrator pas bij echte remote GitHub-runs, wait/resume, dependency-waves, persistente transportstate, rollback/approval over meerdere runs of een strengere reproduceerbare evidence-class. Een Work Scheduled Task-webhook voor GitHub pull-request activity mag een bestaande workflow alleen wekken; hij vervangt geen dispatcherrequest, ownerbesluit of acceptance receipt.
+
 ## Belangrijke grenzen
 
 - `invoked` is nooit hetzelfde als `accepted`.
