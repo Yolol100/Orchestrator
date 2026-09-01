@@ -18,11 +18,11 @@ De Orchestrator transporteert reeds goedgekeurde Webactueel-repositoryplannen na
 
 ```text
 Webactueel-controller
-        ↓ immutable request + approval/dependency receipts
-Orchestrator → adapterregistry → tijdelijke runtimebranch/request-PR
-        ↓                               ↓
-transport-plan.json               specialistartifact/result
-        └──────── readback + vakacceptatie ────────┘
+        ↓ immutable request + approval_policy + dependency receipts
+Orchestrator → adapterregistry ─┬→ tijdelijke runtimebranch/request-PR
+        ↓                       └→ bestaande append-only branch (transcriberen)
+transport-plan.json                         ↓
+        └──────── specialistartifact/result → readback + vakacceptatie ────────┘
 ```
 
 ## Snel starten
@@ -34,7 +34,7 @@ Generieke GitHub-transportlaag voor repositoryplannen die al door `webactueel-wo
 ## Wat hij doet
 
 1. Ontvangt één immutable dispatcherrequest op een tijdelijke `runtime/**` branch.
-2. Controleert workflow-ID, generation, approval, dependency-receipts en de exacte adapter-registry fingerprint.
+2. Controleert workflow-ID, generation, approval policy, dependency-receipts en de exacte adapter-registry fingerprint.
 3. Beperkt een kortlevend GitHub App-token dynamisch tot alleen de repositories in dat request.
 4. Schrijft alleen controller-ready requestbestanden naar geregistreerde specialistadapters.
 5. Start geen downstream node alleen omdat een upstream node net is aangeroepen.
