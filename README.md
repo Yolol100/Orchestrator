@@ -93,13 +93,13 @@ Use this Orchestrator when remote GitHub runs, wait/resume behaviour, dependency
 
 ## Local verification
 
-These commands are also used as CI sources:
+These commands are also the CI source. The Runme Action executes the same named Markdown cells so the README and CI stay aligned.
 
-```bash
+```bash {"name":"compile-python"}
 python3 -m py_compile scripts/*.py tests/*.py
 ```
 
-```bash
+```bash {"name":"regression-tests"}
 python3 -m unittest discover -s tests -v
 ```
 
