@@ -24,18 +24,12 @@ Multi-repository automation can quickly become difficult to audit: one workflow 
 ## Architecture
 
 ```text
-approved request + dependency receipts
-                ↓
-        GitHub Orchestrator
-                ↓
-       registered adapters
-        ↙               ↘
-temporary request     append-only route
-branch / request PR   where required
-        ↓               ↓
-       specialist artifact/result
-                ↓
-          readback + acceptance
+Webactueel controller
+        ↓ immutable request + approval_policy + dependency receipts
+Orchestrator → adapter registry ─┬→ temporary runtime branch / request PR
+        ↓                        └→ existing append-only branch where required
+transport-plan.json                          ↓
+        └──────── specialist artifact/result → readback + domain acceptance ───┘
 ```
 
 The Orchestrator is a transport/execution layer. It does not make SEO, WordPress, Elementor, design, leads or QA decisions itself.
@@ -48,11 +42,11 @@ The Orchestrator is a transport/execution layer. It does not make SEO, WordPress
 4. Writes only controller-ready request files to registered specialist adapters.
 5. Does not start downstream work merely because an upstream node was invoked.
 6. Produces `transport-plan.json` with head SHAs, event IDs, request locators and cleanup obligations.
-7. Returns control to the owning workflow for readback, domain acceptance and the next generation.
+7. Returns control to `webactueel-workflow` for readback, domain acceptance and the next generation.
 
 ## Required configuration
 
-The current deployment uses `Yolol100/Orchestrator`. Install the GitHub App only on repositories the controller is allowed to operate.
+The current deployment uses `Yolol100/Orchestrator`. Install the GitHub App only on specialist repositories the controller is allowed to operate.
 
 Repository variable:
 
@@ -62,33 +56,34 @@ Actions secret:
 
 - `WEB_ACTUEEL_APP_PRIVATE_KEY`
 
-The design splits least-privilege tokens by transport type. Ordinary request-file adapters receive only `contents: write`; guarded WordPress request-PR transport receives `contents: write` plus `pull_requests: write` only where required. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository.
+The design splits least-privilege tokens by transport type: ordinary request-file adapters receive only `contents: write`; the guarded WordPress request-PR adapter receives `contents: write` plus `pull_requests: write` only on `wordpressconnector`. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository.
 
 ## Starting a request
 
-Preferred route:
+Preferred route from the ChatGPT/GitHub connector:
 
 1. Create a temporary branch from `main`, for example `runtime/wf-abcdef123456-g1`.
-2. Add exactly one request under `requests/queue/<request-id>.json`.
+2. Add exactly one new file under `requests/queue/<request-id>.json`.
 3. The push starts `.github/workflows/orchestrate.yml`.
 4. Read the resulting `webactueel-transport-<run_id>` artifact.
-5. Correlation and domain acceptance happen outside the transport layer.
+5. Correlation and domain acceptance happen afterward in the controller/owner.
 
 `workflow_dispatch` is intended only for manual replay of an existing request file on the selected ref. Idempotency prevents duplicate side effects.
 
 ## When this dispatcher is not needed
 
-Use the lightest native route that can provide the required evidence and execution class. A direct connected app or site tool should be preferred over generic browser or repository automation when it can complete the task safely.
+Choose the lightest native route that can provide the required evidence/execution class. An exact connected app or exposed site tool/WebMCP should be preferred over generic browser automation; a native Work/Codex browser should be preferred over a repository adapter when persistent repository evidence is not needed. Repository count by itself is not a reason to activate this dispatcher.
 
-Use this Orchestrator when remote GitHub runs, wait/resume behaviour, dependency waves, persistent transport state, rollback/approval across multiple runs or stricter reproducible evidence are actually required.
+Use this Orchestrator when remote GitHub runs, wait/resume behaviour, dependency waves, persistent transport state, rollback/approval across multiple runs or stricter reproducible evidence are actually required. A scheduled webhook can wake an existing workflow, but it does not replace the dispatcher request, owner decision or acceptance receipt.
 
 ## Important boundaries
 
 - `invoked` is never the same as `accepted`.
-- A dependency is satisfied only when the request contains the required controller-issued `dependency_receipt`.
-- Registered adapters keep their own transport contract; the Orchestrator does not silently convert one transport mode into another.
-- WordPress runtime writes require the configured approval boundary.
-- Customer/project truth does not belong on `main`; temporary runtime state is cleaned up only after readback and acceptance.
+- A dependency is satisfied only when the request contains a controller-issued `dependency_receipt`.
+- `elementorjson` uses only its registered correlated request-file route through `requests/runtime.json`; this is not a free generic dispatch route and acceptance requires exact request/result correlation.
+- `wordpressconnector` intentionally uses a request PR on a temporary branch; the Orchestrator does not convert it into a normal push route, and a WordPress runtime node requires `approval_before_write` or stricter.
+- `transcriberen` uses its own append-only `runtime-requests` queue; the dispatcher does not create a new runtime branch for it.
+- Customer/project truth does not belong on `main`. Temporary runtime branches are removed only after readback and acceptance.
 - A green GitHub Action proves transport execution, not domain correctness.
 
 ## Local verification
@@ -113,7 +108,13 @@ After controller closure, run:
 python3 scripts/cleanup_runtime_branches.py transport-plan.json --confirm-workflow-id <WF-ID>
 ```
 
-Ordinary request branches are removed only when the current SHA still matches the transport receipt. Guarded request-PR routes can require a separately controller-verified current-head JSON file. Without explicit verification, cleanup fails closed. Fixed branches are never deleted.
+Ordinary request branches are removed only when the current SHA still exactly matches the transport receipt. A guarded WordPress request PR can legitimately move after validated result writeback; for that case, provide a separate controller-verified JSON file with `--verified-heads verified-heads.json`, for example:
+
+```json
+{"Yolol100/wordpressconnector:runtime/...":"<current-40-hex-sha>"}
+```
+
+Without that explicit current SHA, cleanup fails closed. Fixed branches are never deleted.
 
 ## Project status and support
 
