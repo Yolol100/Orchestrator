@@ -1,49 +1,58 @@
-# Webactueel GitHub Orchestrator
+# GitHub Orchestrator — Controlled Multi-Repository Automation
 
-> **Portfoliostatus:** Flagship · actieve infrastructuur · Webactueel-transportlaag
+> **Portfolio flagship · Python · GitHub Actions · GitHub App tokens · JSON contracts**
 
-## In één oogopslag
+GitHub Orchestrator is a controlled transport layer for coordinating approved automation work across multiple specialist repositories. It focuses on least-privilege access, explicit dependencies, traceable requests and inspectable results instead of treating a triggered workflow as proof that the work was accepted.
 
-De Orchestrator transporteert reeds goedgekeurde Webactueel-repositoryplannen naar begrensde specialistadapters. Hij neemt geen vakbeslissingen over en beschouwt een gestarte workflow nooit automatisch als geaccepteerd resultaat.
+**Built by:** [Andrew Baeten](https://github.com/Yolol100) · [Portfolio](https://andrewbaeten.nl)
 
-| Onderdeel | Bewijs |
+## What problem it solves
+
+Multi-repository automation can quickly become difficult to audit: one workflow triggers another, permissions become too broad, dependencies are implicit and a green job is mistaken for a correct result. This project keeps transport separate from domain decisions and records the exact repositories, request state, correlation data and cleanup obligations involved in each run.
+
+## Portfolio snapshot
+
+| Area | What it demonstrates |
 | --- | --- |
-| Doelgroep | Webactueel-controllers en geregistreerde specialistrepositories |
-| Stack | Python, GitHub Actions, GitHub App-tokens en JSON-contracten |
-| Kwaliteit | Compilechecks, unittests, registry-fingerprintvalidatie en idempotency |
-| Veiligheid | Kortlevende least-privilege tokens per transportvorm |
-| Resultaat | Correlatievast `transport-plan.json` plus expliciete cleanupverplichtingen |
+| Orchestration | Bounded multi-repository workflow coordination |
+| Security | Short-lived least-privilege GitHub App tokens |
+| Reliability | Idempotency, dependency receipts and registry fingerprint validation |
+| Traceability | Correlation-stable request/result contracts and `transport-plan.json` evidence |
+| Engineering | Python, GitHub Actions, JSON contracts, compile checks and unit tests |
+| Safety | Temporary runtime branches, explicit approvals and controlled cleanup |
 
-## Architectuur
+## Architecture
 
 ```text
-Webactueel-controller
-        ↓ immutable request + approval_policy + dependency receipts
-Orchestrator → adapterregistry ─┬→ tijdelijke runtimebranch/request-PR
-        ↓                       └→ bestaande append-only branch (transcriberen)
-transport-plan.json                         ↓
-        └──────── specialistartifact/result → readback + vakacceptatie ────────┘
+approved request + dependency receipts
+                ↓
+        GitHub Orchestrator
+                ↓
+       registered adapters
+        ↙               ↘
+temporary request     append-only route
+branch / request PR   where required
+        ↓               ↓
+       specialist artifact/result
+                ↓
+          readback + acceptance
 ```
 
-## Snel starten
+The Orchestrator is a transport/execution layer. It does not make SEO, WordPress, Elementor, design, leads or QA decisions itself.
 
-Gebruik de [requestprocedure](#request-starten), wacht op de Actions-run en laat de owning controller daarna artifact, correlatie en vakinhoud accepteren. Een groene transportworkflow is geen inhoudelijke goedkeuring.
+## What it does
 
-Generieke GitHub-transportlaag voor repositoryplannen die al door `webactueel-workflow` zijn gekozen en gevalideerd. Deze repository is **geen inhoudelijke controller** en bevat geen SEO-, WordPress-, Elementor-, Design-, Leads- of QA-beslislogica.
+1. Receives one immutable dispatcher request on a temporary `runtime/**` branch.
+2. Validates workflow ID, generation, approval policy, dependency receipts and the exact adapter-registry fingerprint.
+3. Restricts a short-lived GitHub App token to only the repositories required by that request.
+4. Writes only controller-ready request files to registered specialist adapters.
+5. Does not start downstream work merely because an upstream node was invoked.
+6. Produces `transport-plan.json` with head SHAs, event IDs, request locators and cleanup obligations.
+7. Returns control to the owning workflow for readback, domain acceptance and the next generation.
 
-## Wat hij doet
+## Required configuration
 
-1. Ontvangt één immutable dispatcherrequest op een tijdelijke `runtime/**` branch.
-2. Controleert workflow-ID, generation, approval policy, dependency-receipts en de exacte adapter-registry fingerprint.
-3. Beperkt een kortlevend GitHub App-token dynamisch tot alleen de repositories in dat request.
-4. Schrijft alleen controller-ready requestbestanden naar geregistreerde specialistadapters.
-5. Start geen downstream node alleen omdat een upstream node net is aangeroepen.
-6. Produceert `transport-plan.json` met head-SHA's, event-ID's, requestlocators en cleanup-verplichtingen.
-7. Geeft de workflow terug aan `webactueel-workflow` voor readback, vakacceptatie en de volgende generation.
-
-## Benodigd
-
-De huidige Webactueel-deployment gebruikt `Yolol100/Orchestrator`. Installeer de GitHub App uitsluitend op de specialistrepositories die de controller mag bedienen.
+The current deployment uses `Yolol100/Orchestrator`. Install the GitHub App only on repositories the controller is allowed to operate.
 
 Repository variable:
 
@@ -53,58 +62,69 @@ Actions secret:
 
 - `WEB_ACTUEEL_APP_PRIVATE_KEY`
 
-De blueprint splitst least-privilege tokens per transportvorm: gewone request-file adapters krijgen alleen `contents: write`; de guarded WordPress request-PR adapter krijgt op alleen `wordpressconnector` `contents: write` + `pull_requests: write`. Het gewone workflow-`GITHUB_TOKEN` blijft `contents: read` voor deze repository.
+The design splits least-privilege tokens by transport type. Ordinary request-file adapters receive only `contents: write`; guarded WordPress request-PR transport receives `contents: write` plus `pull_requests: write` only where required. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository.
 
-## Request starten
+## Starting a request
 
-Voorkeursroute vanuit ChatGPT/GitHub connector:
+Preferred route:
 
-1. Maak vanaf `main` een tijdelijke branch zoals `runtime/wf-abcdef123456-g1`.
-2. Voeg precies één nieuw bestand toe onder `requests/queue/<request-id>.json`.
-3. De push start `.github/workflows/orchestrate.yml`.
-4. Lees na afloop het artifact `webactueel-transport-<run_id>`.
-5. Correlatie en inhoudelijke acceptatie gebeuren daarna door de controller/owner.
+1. Create a temporary branch from `main`, for example `runtime/wf-abcdef123456-g1`.
+2. Add exactly one request under `requests/queue/<request-id>.json`.
+3. The push starts `.github/workflows/orchestrate.yml`.
+4. Read the resulting `webactueel-transport-<run_id>` artifact.
+5. Correlation and domain acceptance happen outside the transport layer.
 
-`workflow_dispatch` is alleen bedoeld voor handmatige replay van een bestaand requestbestand op de geselecteerde ref. Idempotency voorkomt dubbele side effects.
+`workflow_dispatch` is intended only for manual replay of an existing request file on the selected ref. Idempotency prevents duplicate side effects.
 
-## Wanneer deze dispatcher niet nodig is
+## When this dispatcher is not needed
 
-Kies vóór deze repository de lichtste native route die dezelfde evidence/execution-class volledig kan leveren. Een exacte connected app of blootgestelde site tool/WebMCP gaat vóór generieke browserautomatisering; een native Work/Codex-browser gaat vóór een repo-adapter wanneer persistente repo-evidence niet nodig is. Codex desktop kan meerdere repositories in één project gebruiken, dus repo-aantal alleen activeert deze dispatcher niet.
+Use the lightest native route that can provide the required evidence and execution class. A direct connected app or site tool should be preferred over generic browser or repository automation when it can complete the task safely.
 
-Gebruik deze Orchestrator pas bij echte remote GitHub-runs, wait/resume, dependency-waves, persistente transportstate, rollback/approval over meerdere runs of een strengere reproduceerbare evidence-class. Een Work Scheduled Task-webhook voor GitHub pull-request activity mag een bestaande workflow alleen wekken; hij vervangt geen dispatcherrequest, ownerbesluit of acceptance receipt.
+Use this Orchestrator when remote GitHub runs, wait/resume behaviour, dependency waves, persistent transport state, rollback/approval across multiple runs or stricter reproducible evidence are actually required.
 
-## Belangrijke grenzen
+## Important boundaries
 
-- `invoked` is nooit hetzelfde als `accepted`.
-- Een dependency is alleen voldaan wanneer het request een controller-issued `dependency_receipt` bevat.
-- `elementorjson` gebruikt uitsluitend de geregistreerde gecorreleerde request-file-route via `requests/runtime.json`; dit is geen vrije generieke dispatchroute en acceptatie vereist de exacte request-/resultcorrelatie.
-- `wordpressconnector` gebruikt bewust een request-PR op een tijdelijke branch; de Orchestrator verandert dit niet in een gewone pushroute en een WordPress-runtime node vereist `approval_before_write` of strenger.
-- `transcriberen` gebruikt zijn eigen append-only `runtime-requests` queue; de dispatcher maakt daarvoor geen nieuwe runtimebranch.
-- Klant-/projectwaarheid hoort niet op `main`. Tijdelijke runtimebranches worden pas na readback/acceptatie opgeruimd.
-- Een groene GitHub Action bewijst transport, niet vakinhoudelijke correctheid.
+- `invoked` is never the same as `accepted`.
+- A dependency is satisfied only when the request contains the required controller-issued `dependency_receipt`.
+- Registered adapters keep their own transport contract; the Orchestrator does not silently convert one transport mode into another.
+- WordPress runtime writes require the configured approval boundary.
+- Customer/project truth does not belong on `main`; temporary runtime state is cleaned up only after readback and acceptance.
+- A green GitHub Action proves transport execution, not domain correctness.
 
-## Lokale controle
+## Local verification
 
-Deze commando's zijn ook de CI-bron. De Runme Action voert exact dezelfde benoemde Markdown-cellen uit, zodat README en CI niet uit elkaar gaan. Runme is lokaal optioneel; de commando's blijven gewone shellcommando's.
+These commands are also used as CI sources:
 
-```bash {"name":"compile-python"}
+```bash
 python3 -m py_compile scripts/*.py tests/*.py
 ```
 
-```bash {"name":"regression-tests"}
+```bash
 python3 -m unittest discover -s tests -v
 ```
 
-Gebruik daarna een echte staging-/read-only smoke voordat write- of releasepaden worden toegestaan.
+Use a real staging/read-only smoke test before allowing write or release paths.
 
-## Opruimen van tijdelijke runtimebranches
+## Cleaning temporary runtime branches
 
-Na controller-closure kun je `python3 scripts/cleanup_runtime_branches.py transport-plan.json --confirm-workflow-id <WF-ID>` uitvoeren. Gewone requestbranches worden alleen verwijderd wanneer de huidige SHA nog exact overeenkomt met de transportreceipt. Een guarded WordPress request-PR mag na gevalideerde result-writeback bewust zijn verplaatst; lever daarvoor een apart controller-geverifieerd JSON-bestand aan met `--verified-heads verified-heads.json`, bijvoorbeeld `{"Yolol100/wordpressconnector:runtime/...": "<current-40-hex-sha>"}`. Zonder die expliciete actuele SHA faalt cleanup gesloten. Vaste branches worden nooit verwijderd.
+After controller closure, run:
 
-## Projectstatus, roadmap en support
+```bash
+python3 scripts/cleanup_runtime_branches.py transport-plan.json --confirm-workflow-id <WF-ID>
+```
 
-De transportlaag is actief en contractgestuurd. Uitbreidingen vereisen een geregistreerde adapter, testbewijs en expliciete controlleracceptatie. Meld reproduceerbare defecten via [GitHub Issues](https://github.com/Yolol100/Orchestrator/issues); plaats daar nooit private keys, tokens of requestpayloads met klantdata.
+Ordinary request branches are removed only when the current SHA still matches the transport receipt. Guarded request-PR routes can require a separately controller-verified current-head JSON file. Without explicit verification, cleanup fails closed. Fixed branches are never deleted.
 
-## Licentie
+## Project status and support
 
-Deze repository bevat momenteel geen open-sourcelicentie. Hergebruik, distributie of afgeleide werken zijn niet toegestaan zonder expliciete toestemming van de rechthebbende.
+The transport layer is actively developed and contract-driven. Extensions require a registered adapter, test evidence and explicit controller acceptance. Report reproducible defects through [GitHub Issues](https://github.com/Yolol100/Orchestrator/issues) without publishing private keys, tokens or request payloads containing customer data.
+
+## About the developer
+
+I am **Andrew Baeten**, a Senior WordPress Developer & Web Designer with 10+ years of experience across 70+ WordPress projects. I build WordPress/WooCommerce solutions as well as QA, SEO and automation tooling around reliable website delivery.
+
+[Portfolio](https://andrewbaeten.nl) · [LinkedIn](https://www.linkedin.com/in/andrew-baeten-305a1478/) · [Email](mailto:info@andrewbaeten.nl)
+
+## License
+
+This repository currently has no open-source license. Reuse, distribution or derivative works are not permitted without explicit permission from the copyright holder.
