@@ -122,7 +122,7 @@ The transport layer is actively developed and contract-driven. Extensions requir
 
 ## About the developer
 
-I am **Andrew Baeten**, a Senior WordPress Developer & Web Designer with 10+ years of experience across 70+ WordPress projects. I build WordPress/WooCommerce solutions as well as QA, SEO and automation tooling around reliable website delivery.
+I am **Andrew Baeten**, a Senior WordPress Developer & Web Designer with 10+ years of experience across **90+ WordPress projects**. I currently manage and regularly update **120+ websites and webshops**, alongside building WordPress/WooCommerce solutions and QA, SEO and automation tooling for reliable website delivery.
 
 [Portfolio](https://andrewbaeten.nl) · [LinkedIn](https://www.linkedin.com/in/andrew-baeten-305a1478/) · [Email](mailto:info@andrewbaeten.nl)
 
