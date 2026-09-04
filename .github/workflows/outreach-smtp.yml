@@ -82,6 +82,13 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
         run: python3 scripts/outreach_extended_preflight.py
 
+      - name: Run outreach compliance preflight
+        env:
+          OUTREACH_MODE: ${{ steps.policy.outputs.effective_mode }}
+          OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/outreach_compliance_preflight.py
+
       - name: Verify pending outreach emails
         env:
           OUTREACH_MODE: ${{ steps.policy.outputs.effective_mode }}
