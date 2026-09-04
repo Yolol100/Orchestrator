@@ -1,0 +1,54 @@
+name: Controlled SMTP Outreach
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/15 6-18 * * 1-5'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controlled-smtp-outreach
+  cancel-in-progress: false
+
+jobs:
+  outreach:
+    if: vars.OUTREACH_ENABLED == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+
+      - name: Install outreach runtime dependencies
+        run: python3 -m pip install --disable-pip-version-check --requirement requirements-outreach.txt
+
+      - name: Process approved outreach queue
+        env:
+          OUTREACH_MODE: ${{ vars.OUTREACH_MODE }}
+          OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
+          OUTREACH_TIMEZONE: ${{ vars.OUTREACH_TIMEZONE }}
+          OUTREACH_SEND_WINDOW_START: ${{ vars.OUTREACH_SEND_WINDOW_START }}
+          OUTREACH_SEND_WINDOW_END: ${{ vars.OUTREACH_SEND_WINDOW_END }}
+          OUTREACH_DAILY_LIMIT: ${{ vars.OUTREACH_DAILY_LIMIT }}
+          OUTREACH_MAX_SENDS_PER_RUN: ${{ vars.OUTREACH_MAX_SENDS_PER_RUN }}
+          OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
+          OUTREACH_SMTP_HOST: ${{ vars.OUTREACH_SMTP_HOST }}
+          OUTREACH_SMTP_PORT: ${{ vars.OUTREACH_SMTP_PORT }}
+          OUTREACH_IMAP_HOST: ${{ vars.OUTREACH_IMAP_HOST }}
+          OUTREACH_IMAP_PORT: ${{ vars.OUTREACH_IMAP_PORT }}
+          OUTREACH_MAIL_USER: ${{ vars.OUTREACH_MAIL_USER }}
+          OUTREACH_SENDER_NAME: ${{ vars.OUTREACH_SENDER_NAME }}
+          OUTREACH_SENDER_EMAIL: ${{ vars.OUTREACH_SENDER_EMAIL }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          REOON_API_KEY: ${{ secrets.REOON_API_KEY }}
+          OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}
+        run: python3 scripts/outreach_sender.py
