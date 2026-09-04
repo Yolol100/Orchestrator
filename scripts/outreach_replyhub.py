@@ -10,6 +10,7 @@ from hashlib import sha256
 from typing import Iterable
 
 from outreach_mailboxes import MailboxConfig
+from outreach_optout import message_has_optout
 from outreach_sender import (
     QUEUE_SHEET,
     Settings,
@@ -18,7 +19,6 @@ from outreach_sender import (
     extract_bounced_recipient,
     iso,
     log_event,
-    message_has_optout,
     message_text,
     normalize_address,
     update_row,
