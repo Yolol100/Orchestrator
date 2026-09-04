@@ -3,7 +3,7 @@ name: Controlled SMTP Outreach
 on:
   workflow_dispatch:
   schedule:
-    - cron: '*/15 6-18 * * 1-5'
+    - cron: '7,22,37,52 6-18 * * 1-5'
 
 permissions:
   contents: read
@@ -31,6 +31,16 @@ jobs:
       - name: Install outreach runtime dependencies
         run: python3 -m pip install --disable-pip-version-check --requirement requirements-outreach.txt
 
+      - name: Verify pending outreach emails
+        env:
+          OUTREACH_MODE: ${{ vars.OUTREACH_MODE }}
+          OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
+          OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
+          OUTREACH_MAX_VERIFICATIONS_PER_RUN: ${{ vars.OUTREACH_MAX_VERIFICATIONS_PER_RUN }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          REOON_API_KEY: ${{ secrets.REOON_API_KEY }}
+        run: python3 scripts/outreach_verifier.py
+
       - name: Process approved outreach queue
         env:
           OUTREACH_MODE: ${{ vars.OUTREACH_MODE }}
@@ -49,6 +59,5 @@ jobs:
           OUTREACH_SENDER_NAME: ${{ vars.OUTREACH_SENDER_NAME }}
           OUTREACH_SENDER_EMAIL: ${{ vars.OUTREACH_SENDER_EMAIL }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          REOON_API_KEY: ${{ secrets.REOON_API_KEY }}
           OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}
         run: python3 scripts/outreach_sender.py
