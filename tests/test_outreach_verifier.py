@@ -26,6 +26,19 @@ class FakeResponse:
 
 
 class OutreachVerifierTests(unittest.TestCase):
+    def test_single_power_verification_stays_in_verifier(self):
+        calls = []
+
+        def opener(request, timeout=90):
+            calls.append(request)
+            self.assertIn("mode=power", request)
+            self.assertIn("email=a%40example.com", request)
+            return FakeResponse({"status": "safe", "is_safe_to_send": True})
+
+        result = v.reoon_verify("a@example.com", "key", opener=opener)
+        self.assertEqual(result["status"], "safe")
+        self.assertEqual(len(calls), 1)
+
     def test_bulk_requires_at_least_ten(self):
         with self.assertRaises(ValueError):
             v.reoon_verify_bulk([f"a{i}@example.com" for i in range(9)], "key", opener=lambda *args, **kwargs: None)
