@@ -76,6 +76,12 @@ jobs:
           OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}
         run: python3 scripts/outreach_preflight.py
 
+      - name: Run extended outreach contract preflight
+        env:
+          OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/outreach_extended_preflight.py
+
       - name: Verify pending outreach emails
         env:
           OUTREACH_MODE: ${{ steps.policy.outputs.effective_mode }}
@@ -95,6 +101,11 @@ jobs:
           OUTREACH_SEND_WINDOW_END: ${{ vars.OUTREACH_SEND_WINDOW_END }}
           OUTREACH_DAILY_LIMIT: ${{ steps.policy.outputs.effective_daily_limit }}
           OUTREACH_MAX_SENDS_PER_RUN: ${{ steps.policy.outputs.effective_max_sends_per_run }}
+          OUTREACH_MAX_NEW_LEADS_PER_DAY: ${{ vars.OUTREACH_MAX_NEW_LEADS_PER_DAY }}
+          OUTREACH_PRIORITIZE_NEW_LEADS: ${{ vars.OUTREACH_PRIORITIZE_NEW_LEADS }}
+          OUTREACH_RANDOM_JITTER_MINUTES: ${{ vars.OUTREACH_RANDOM_JITTER_MINUTES }}
+          OUTREACH_REPLY_LOOKBACK_DAYS: ${{ vars.OUTREACH_REPLY_LOOKBACK_DAYS }}
+          OUTREACH_CAPTURE_OTHER_MAIL: ${{ vars.OUTREACH_CAPTURE_OTHER_MAIL }}
           OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
           OUTREACH_MAILBOX_ID: ${{ vars.OUTREACH_MAILBOX_ID }}
           OUTREACH_MAILBOX_DAILY_LIMIT: ${{ vars.OUTREACH_MAILBOX_DAILY_LIMIT }}
@@ -111,7 +122,7 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}
           OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}
-        run: python3 scripts/outreach_sender.py
+        run: python3 scripts/outreach_campaign_runtime.py
 
       - name: Summarize outreach analytics
         if: always()
@@ -119,9 +130,7 @@ jobs:
         env:
           OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
           OUTREACH_TIMEZONE: ${{ vars.OUTREACH_TIMEZONE }}
-          OUTREACH_POLICY_REASON: ${{ steps.policy.outputs.reason }}
-          OUTREACH_EFFECTIVE_MODE: ${{ steps.policy.outputs.effective_mode }}
-          OUTREACH_EFFECTIVE_DAILY_LIMIT: ${{ steps.policy.outputs.effective_daily_limit }}
-          OUTREACH_EFFECTIVE_MAX_SENDS_PER_RUN: ${{ steps.policy.outputs.effective_max_sends_per_run }}
+          OUTREACH_VARIANT_MIN_SAMPLES: ${{ vars.OUTREACH_VARIANT_MIN_SAMPLES }}
+          OUTREACH_MAILBOX_BOUNCE_ALERT_RATE: ${{ vars.OUTREACH_MAILBOX_BOUNCE_ALERT_RATE }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-        run: python3 scripts/outreach_analytics.py
+        run: python3 scripts/outreach_reporting.py
