@@ -1,100 +1,70 @@
 # Instantly-like capability map
 
-This repository is not an Instantly clone. It is the controlled SMTP/IMAP transport runtime owned by the Webactueel Leads workflow. Lead finding, evidence, personalization and compliance stay outside the transport repository so the same Leads control plane can use public discovery, Apollo now, or Instantly later without changing transport truth.
-
 Reference date: 2026-09-04.
 
-## Covered in the current Orchestrator runtime
+This repository is not presented as an Instantly clone. It now combines bounded public company/domain discovery with the existing controlled SMTP/IMAP runtime. Webactueel Leads remains owner of fit, official-site evidence, Opportunity Priority, bounded contact lookup, personalization, compliance and lifecycle interpretation.
 
-| Instantly-style capability | Orchestrator equivalent | Status |
+## Covered now
+
+| Instantly-style capability | Webactueel / Orchestrator equivalent | Status |
 | --- | --- | --- |
-| Stop sequence on reply | IMAP/ReplyHub readback moves the lead to `replied` and blocks later sends | implemented |
-| Bounce suppression | Delivery-status bounces move the lead to `bounced` and add suppression | implemented |
-| Opt-out suppression | Explicit opt-outs/direct reply opt-outs stop later sends and enter suppression | implemented |
-| Email verification before first contact | Reoon preprocessor with fail-closed freshness gate | implemented |
-| Daily campaign limit | `OUTREACH_DAILY_LIMIT` with hard runtime cap | implemented |
-| Per-run pacing | `OUTREACH_MAX_SENDS_PER_RUN` plus optional natural pacing | implemented |
-| Send window/start/end/ramp | local-time window, campaign dates and deterministic slow ramp | implemented |
+| Net-new company discovery | approved `seed_site`, `directory_page` and `directory_index` sources | implemented, source-driven |
+| Prospect filters | include/exclude terms, country and per-source limits | implemented, basic |
+| Dedupe | canonical-domain check against `Leadlijst` + `ProspectCandidates` | implemented |
+| Contact lookup | bounded per-company lookup stays in Leads; discovery runtime does not bulk-collect addresses | implemented in Leads |
+| Email verification | Reoon first-contact freshness gate | implemented |
+| Stop on reply | IMAP/ReplyHub blocks later sends | implemented |
+| Bounce/opt-out suppression | suppression + stop state | implemented |
+| Campaign limits/pacing | daily/per-run limits, windows, ramp and jitter | implemented |
 | Sender authentication preflight | SPF, DKIM, DMARC, SMTP and IMAP checks | implemented |
-| Multiple sending accounts | `OUTREACH_MAILBOXES_JSON` sender pool | implemented |
-| Per-mailbox daily limit/minimum wait | mailbox-scoped guards plus campaign-wide cap | implemented |
-| Inbox rotation | load-aware selection across enabled mailboxes | implemented |
-| Sticky sender for follow-ups | sender mailbox/email persisted per queue/sequence | implemented |
-| Multi-mailbox reply/bounce readback | ReplyHub scans every enabled mailbox | implemented |
-| Multi-step sequences | `OutreachSequences`, up to 50 ordered approved steps | implemented |
-| Independent step waits | `wait_minutes` per step | implemented |
-| Same-thread follow-ups | `Message-ID`, `In-Reply-To`, `References`, inherited subject | implemented |
-| A-Z variants | up to 26 pre-approved variants per step | implemented |
-| Stable variant assignment | deterministic per lead/sequence/version/step, persisted before SMTP | implemented |
-| Variant outcome reporting | `VariantAnalytics` based on send/reply/bounce/opt-out readback | implemented |
-| Max new leads / follow-up priority | campaign controls in runtime | implemented |
-| Random additional delay | deterministic bounded jitter | implemented |
-| Unified reply dataset | `ReplyInbox` across configured mailboxes | implemented operator layer |
-| Mailbox transport health | `MailboxHealth` 30-day send/reply/bounce/opt-out metrics | implemented |
+| Multiple sending accounts | mailbox pool with per-mailbox guards and rotation | implemented |
+| Sticky follow-up sender | sender persisted per queue/sequence | implemented |
+| Multi-step sequences | up to 50 approved steps | implemented |
+| Same-thread follow-ups | Message-ID/In-Reply-To/References | implemented |
+| A-Z variants | up to 26 approved variants per step | implemented |
+| Stable variant assignment | deterministic and persisted | implemented |
+| Variant analytics | send/reply/bounce/opt-out reporting | implemented |
+| Unified reply dataset | `ReplyInbox` | implemented operator layer |
+| Mailbox transport health | 30-day transport metrics | implemented |
 
-## Prospecting and enrichment: intentionally outside this repository
+## Important Instantly capabilities that remain materially stronger
 
-Instantly now combines outreach with SuperSearch: a large B2B prospect database, advanced filters, verified work-email discovery, waterfall enrichment across multiple data providers and AI/web research. Reproducing that database inside GitHub would be the wrong architecture.
+### Proprietary prospect database and waterfall enrichment
 
-Webactueel uses a provider-neutral intake instead:
+Instantly SuperSearch has a proprietary global B2B contact corpus, advanced filtering and a commercial multi-provider enrichment waterfall. The self-built Webactueel discovery engine is deliberately source-driven. It can find net-new companies from approved public sources, but a GitHub repository alone cannot honestly reproduce Instantly-scale contact coverage or a 5+ commercial-provider waterfall.
 
-1. Leads deduplicates against the canonical Leadlijst.
-2. Without Instantly input, Leads may use a genuinely connected native prospecting source such as Apollo for net-new people/company discovery and enrichment, subject to that connector's credit/permission rules.
-3. Public web discovery remains the fallback.
-4. Official-site evidence is still required for any company/site claim used in personalization.
-5. Approved candidates enter `OutreachQueue` / `OutreachSequences`; only then does this repository take over transport.
-6. Direct SMTP still requires fresh Reoon `safe` verification even when a prospect provider supplied an address.
+### Signals at Instantly scale
 
-This is functional composition, not a hidden lead-finder inside the repo. When Instantly is connected later it can replace or supplement the prospecting/provider layer while the Leads control plane and GitHub transport contracts remain stable.
+Leads can use current public/official company signals. This repository does not claim a continuously refreshed cross-web intent/data graph at Instantly scale.
 
-See `docs/prospecting-intake.md` for the boundary contract.
+### True warm-up network
 
-## Where Instantly remains materially stronger
+A self-mail loop is not equivalent to Instantly's cross-account warm-up pool. No fake warmup score is implemented.
 
-### 1. True warm-up network
+### Inbox placement network
 
-Instantly operates a recipient-account warm-up network with engagement/spam-to-inbox interactions and a warm-up health score. A standalone GitHub repository cannot reproduce that evidence honestly. Self-mail loops are not equivalent.
+Sender preflight proves configuration/connectivity, not inbox/spam/promotions placement across seed accounts. Real placement testing remains external.
 
-### 2. Inbox placement testing
+### Cross-customer deliverability intelligence
 
-Instantly can test inbox/spam/promotions placement across providers, inspect SPF/DKIM/DMARC and blacklist signals, and schedule recurring placement tests. Our preflight validates configuration and transport; it does not prove inbox placement.
+Local bounce, suppression and mailbox-health data exist. Instantly has broader network-level deliverability telemetry that this single workspace cannot reproduce.
 
-### 3. Provider matching / deliverability network intelligence
+### Full Unibox/CRM application
 
-Instantly can route based on recipient/sender ESP combinations and has broader provider-level deliverability telemetry. Our mailbox pool deliberately does not guess recipient-provider routing.
+`ReplyInbox`, `Leadlijst`, analytics and Sales handoff provide the state/data layer, but not a full rich web application with AI sentiment, bulk actions and CRM UX.
 
-### 4. Open/click tracking and custom tracking domains
+### Automated optimization and reply-triggered branches
 
-Not enabled in the current runtime. Reply/bounce/opt-out outcomes are intentionally primary because tracking pixels/redirect domains add privacy and deliverability trade-offs. Add only after a separate legal/deliverability review.
+A-Z reporting is advisory. Transport does not autonomously rewrite/disable approved copy or launch a new reply-triggered subsequence. Those decisions remain with Leads/controller.
 
-### 5. Full Unibox application
+### Open/click tracking
 
-`ReplyInbox` consolidates replies and supports controller/operator triage data, but it is not a dedicated web UI with AI sentiment, rich bulk actions and CRM-like interaction.
+Tracking pixels/redirects remain off by default because of privacy/deliverability trade-offs. Reply, bounce, opt-out and downstream sales outcomes are the preferred optimization signals.
 
-### 6. Automated copy optimization and reply-triggered branches
+## A-Z versus ATS
 
-The runtime can report variant results but never rewrites or disables approved copy. Replies stop the current sequence. Any new reply-triggered subsequence requires an explicit Leads/controller state machine and approval.
+There is no separate `ATS` variant in the current Leads model. The implemented transport feature is **A-Z variants**. Leads/`leadpromo.md` remains the copy owner and determines which variants are actually approved.
 
-## Campaign-control notes
+## Evidence boundary for mailing
 
-- `OUTREACH_NATURAL_PACING=true` restricts effective sends to one outbound message per GitHub run.
-- Slow ramp and campaign start/end dates only reduce or block sending; they never override hard caps.
-- Extra mailboxes cannot multiply campaign-wide limits or bypass provider/reputation controls.
-- Enabled sequence steps must be contiguous, pre-approved and aligned to an approved queue row.
-- Variant selection is deterministic and persisted. A-Z is transport capability; Leads/`leadpromo.md` remains the copy owner and decides which variants are actually approved for a campaign.
-- A reply, bounce, opt-out, suppression state, block or ambiguous send error stops later sequence sends.
-
-## Current evidence boundary
-
-Green repository CI proves compile/regression/contract behavior. SMTP acceptance proves only that the sender server accepted a message. Neither proves recipient delivery or inbox placement. A real received-message test with header/readback inspection is required before claiming live mailing is proven end-to-end.
-
-## Current Instantly references used for this comparison
-
-- SuperSearch and waterfall enrichment
-- Campaign Options
-- Sequences and A/Z testing
-- Unibox V2
-- Warm-Up / Email Accounts Dashboard
-- Inbox Placement and automated placement tests
-
-Keep this map evidence-bound: if Instantly changes a feature, refresh the comparison before making a parity claim.
+Green CI proves code and contract behavior. SMTP acceptance proves only that the sender server accepted a message. It does not prove recipient delivery or primary-inbox placement. End-to-end mailing is only proven after a controlled received-message test with header/authentication inspection plus reply, opt-out, bounce and sequence readback checks.
