@@ -1,0 +1,116 @@
+{
+  "schema_version": "1.0",
+  "controller": "webactueel-workflow",
+  "selection_rule": "Use the smallest active capability that adds a required evidence or execution class. Product repositories are targets, not workflow controllers.",
+  "core_repositories": [
+    {
+      "id": "orchestrator",
+      "repository": "Yolol100/Orchestrator",
+      "owner_skill": "webactueel-workflow",
+      "role": "github-transport-only",
+      "status": "active"
+    },
+    {
+      "id": "designchecker",
+      "repository": "Yolol100/Designchecker",
+      "owner_skill": "design",
+      "consumer_skills": ["design", "website-qa-checklist"],
+      "role": "shared-browser-and-visual-evidence",
+      "status": "active"
+    },
+    {
+      "id": "seochecker",
+      "repository": "Yolol100/seochecker",
+      "owner_skill": "seo",
+      "role": "technical-seo-evidence",
+      "status": "active"
+    },
+    {
+      "id": "elementorjson",
+      "repository": "Yolol100/elementorjson",
+      "owner_skill": "elementor",
+      "role": "elementor-controlled-runtime",
+      "status": "active"
+    },
+    {
+      "id": "programmeren",
+      "repository": "Yolol100/programmeren",
+      "owner_skill": "wordpressqualityarchitect",
+      "role": "generic-wordpress-plugin-audit",
+      "status": "active"
+    },
+    {
+      "id": "wordpressconnector",
+      "repository": "Yolol100/wordpressconnector",
+      "owner_skill": "wordpressqualityarchitect",
+      "consumer_skills": ["seo", "design", "elementor", "wordpressqualityarchitect"],
+      "role": "canonical-live-wordpress-bridge",
+      "status": "active"
+    },
+    {
+      "id": "transcriberen",
+      "repository": "Yolol100/transcriberen",
+      "owner_skill": "webactueel-workflow",
+      "owner_mode": "transcribeer",
+      "role": "caption-acquisition-runtime",
+      "status": "active"
+    }
+  ],
+  "consolidations": [
+    {
+      "source": "Yolol100/Checklist",
+      "target": "Yolol100/Designchecker",
+      "status": "migration",
+      "source_runtime_status": "legacy-active-until-evidence-parity",
+      "remove_after": [
+        "formal-evidence parity is tested",
+        "orchestrator routing is switched",
+        "Website QA accepts correlated replacement evidence"
+      ]
+    },
+    {
+      "source": "Yolol100/Elementorconnector",
+      "target": "Yolol100/wordpressconnector",
+      "status": "migration",
+      "source_runtime_status": "maintenance-only-until-live-bridge-parity",
+      "remove_after": [
+        "state-token and capability-inventory parity is tested",
+        "staging read/write/rollback matrix passes",
+        "all active site routes use wordpressconnector"
+      ]
+    },
+    {
+      "source": "Yolol100/Export-acf-to-csv",
+      "target": "Yolol100/ACF-Text-Manager",
+      "status": "duplicate-deprecation",
+      "source_runtime_status": "no-new-development",
+      "remove_after": [
+        "unique commits are reconciled",
+        "release users are directed to the canonical repository"
+      ]
+    }
+  ],
+  "deprecated_repositories": [
+    {
+      "repository": "Yolol100/elementor-design-kit-generator",
+      "successor": "Yolol100/elementorjson",
+      "reason": "design-kit generation and native V3/V4 kit validation belong to the Elementor runtime"
+    }
+  ],
+  "archive_candidates": [
+    {
+      "repository": "Yolol100/Woocommerce-return-requests",
+      "reason": "placeholder repository without an active implementation"
+    }
+  ],
+  "excluded_repositories": [
+    {
+      "repository": "Yolol100/Leadscanner",
+      "reason": "explicitly excluded from this simplification"
+    },
+    {
+      "repository": "Yolol100/vacature-engine",
+      "reason": "explicitly excluded from this simplification"
+    }
+  ]
+}

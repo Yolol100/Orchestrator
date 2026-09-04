@@ -45,6 +45,11 @@ jobs:
           print(actual)
           PY
 
+      - name: Validate platform architecture
+        run: |
+          python3 scripts/validate_platform_architecture.py config/platform-repositories.json
+          python3 -m unittest tests/test_platform_architecture.py -v
+
       - name: Run documented compile and regression checks
         uses: stateful/runme-action@d88fd274f74c3fda03d0bf7089ce93d24c8adbaa # v3
         with:
