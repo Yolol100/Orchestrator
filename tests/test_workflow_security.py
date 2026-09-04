@@ -29,15 +29,17 @@ class WorkflowSecurityTests(unittest.TestCase):
             self.assertIn("\npermissions:\n", text, f"{path.name}: missing explicit permissions")
             self.assertNotIn("write-all", text, f"{path.name}: write-all is forbidden")
 
-    def test_outreach_policy_preflight_verifier_sender_order(self):
+    def test_outreach_policy_preflights_verifier_sender_order(self):
         text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
         policy = text.index("- name: Resolve campaign pacing policy")
         preflight = text.index("- name: Run sender preflight")
+        extended = text.index("- name: Run extended outreach contract preflight")
         verifier = text.index("- name: Verify pending outreach emails")
         sender = text.index("- name: Process approved outreach queue")
         analytics = text.index("- name: Summarize outreach analytics")
         self.assertLess(policy, preflight)
-        self.assertLess(preflight, verifier)
+        self.assertLess(preflight, extended)
+        self.assertLess(extended, verifier)
         self.assertLess(verifier, sender)
         self.assertLess(sender, analytics)
 
@@ -52,6 +54,7 @@ class WorkflowSecurityTests(unittest.TestCase):
             "OUTREACH_MAX_SENDS_PER_RUN: ${{ steps.policy.outputs.effective_max_sends_per_run }}",
             sender,
         )
+        self.assertIn("run: python3 scripts/outreach_campaign_runtime.py", sender)
 
     def test_outreach_sender_step_never_receives_reoon_key(self):
         text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
@@ -60,9 +63,12 @@ class WorkflowSecurityTests(unittest.TestCase):
         )[0]
         self.assertNotIn("REOON_API_KEY", sender)
 
-    def test_mailbox_pool_secret_is_scoped_to_preflight_and_sender(self):
+    def test_mailbox_pool_secret_is_scoped_to_sender_preflight_and_sender(self):
         text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
         preflight = text.split("- name: Run sender preflight", 1)[1].split(
+            "- name: Run extended outreach contract preflight", 1
+        )[0]
+        extended = text.split("- name: Run extended outreach contract preflight", 1)[1].split(
             "- name: Verify pending outreach emails", 1
         )[0]
         verifier = text.split("- name: Verify pending outreach emails", 1)[1].split(
@@ -74,16 +80,28 @@ class WorkflowSecurityTests(unittest.TestCase):
         analytics = text.split("- name: Summarize outreach analytics", 1)[1]
         self.assertIn("OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}", preflight)
         self.assertIn("OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}", sender)
+        self.assertNotIn("OUTREACH_MAILBOXES_JSON", extended)
         self.assertNotIn("OUTREACH_MAILBOXES_JSON", verifier)
         self.assertNotIn("OUTREACH_MAILBOXES_JSON", analytics)
 
-    def test_analytics_is_readback_only_and_non_blocking(self):
+    def test_reporting_is_non_blocking_and_has_no_mail_or_verifier_secrets(self):
         text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
         analytics = text.split("- name: Summarize outreach analytics", 1)[1]
         self.assertIn("continue-on-error: true", analytics)
+        self.assertIn("run: python3 scripts/outreach_reporting.py", analytics)
         self.assertNotIn("OUTREACH_MAIL_PASSWORD", analytics)
         self.assertNotIn("OUTREACH_MAILBOXES_JSON", analytics)
         self.assertNotIn("REOON_API_KEY", analytics)
+
+    def test_extended_preflight_has_sheet_access_only(self):
+        text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
+        extended = text.split("- name: Run extended outreach contract preflight", 1)[1].split(
+            "- name: Verify pending outreach emails", 1
+        )[0]
+        self.assertIn("GOOGLE_SERVICE_ACCOUNT_JSON", extended)
+        self.assertNotIn("OUTREACH_MAIL_PASSWORD", extended)
+        self.assertNotIn("REOON_API_KEY", extended)
+        self.assertNotIn("OUTREACH_MAILBOXES_JSON", extended)
 
     def test_outreach_job_remains_disabled_without_explicit_flag(self):
         text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
