@@ -18,7 +18,12 @@ class OutreachSenderTests(unittest.TestCase):
     def test_opt_out_detection_is_conservative(self):
         self.assertTrue(o.message_has_optout("Please remove me from this list."))
         self.assertTrue(o.message_has_optout("Geen mails meer graag"))
+        self.assertTrue(o.message_has_optout('nee\n\nOp 4 sep schreef Andrew:\nGeen interesse? Een kort "nee" is genoeg.'))
         self.assertFalse(o.message_has_optout("Not interested right now."))
+
+    def test_sender_has_no_verifier_api_surface(self):
+        self.assertFalse(hasattr(o, "reoon_verify"))
+        self.assertNotIn("reoon_api_key", o.Settings.__dataclass_fields__)
 
     def test_next_action(self):
         now = datetime(2026, 9, 4, 10, 0, tzinfo=timezone.utc)
