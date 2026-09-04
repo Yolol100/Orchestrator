@@ -26,7 +26,6 @@ from outreach_sender import (
     validate_row,
     verification_decision,
     verification_is_fresh,
-    reoon_verify,
 )
 
 BULK_CREATE_URL = "https://emailverifier.reoon.com/api/v1/create-bulk-verification-task/"
@@ -40,6 +39,17 @@ def max_verifications_from_env() -> int:
     if value < 1 or value > 500:
         raise ValueError("OUTREACH_MAX_VERIFICATIONS_PER_RUN must be between 1 and 500")
     return value
+
+
+def reoon_verify(address: str, api_key: str, opener: Callable = urlopen) -> dict:
+    if not api_key:
+        raise RuntimeError("REOON_API_KEY is required in verify/live mode")
+    query = urlencode({"email": address, "key": api_key, "mode": "power"})
+    with opener("https://emailverifier.reoon.com/api/v1/verify?" + query, timeout=90) as response:
+        payload = json.loads(response.read().decode("utf-8"))
+    if not isinstance(payload, dict):
+        raise RuntimeError("unexpected verifier response")
+    return payload
 
 
 def normalize_bulk_results(payload: dict) -> dict[str, dict]:
@@ -151,6 +161,7 @@ def process() -> int:
         print(f"mode=validate verification_candidates={len(indexes)}; verifier not called")
         return 0
 
+    api_key = os.getenv("REOON_API_KEY", "")
     max_per_run = max_verifications_from_env()
     selected = indexes[:max_per_run]
     deferred = indexes[max_per_run:]
@@ -180,7 +191,7 @@ def process() -> int:
 
     addresses = [rows[idx]["email"] for idx in eligible]
     if len(addresses) >= 10:
-        results = reoon_verify_bulk(addresses, settings.reoon_api_key)
+        results = reoon_verify_bulk(addresses, api_key)
         for idx in eligible:
             row = rows[idx]
             address = normalize_address(row["email"])
@@ -195,7 +206,7 @@ def process() -> int:
     else:
         for idx in eligible:
             row = rows[idx]
-            result = reoon_verify(row["email"], settings.reoon_api_key)
+            result = reoon_verify(row["email"], api_key)
             apply_result(service, settings, headers, idx + 2, row, result, "Reoon single Power mode")
         verifier_mode = "single"
 

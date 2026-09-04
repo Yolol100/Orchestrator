@@ -13,9 +13,7 @@ from email.message import EmailMessage
 from email.utils import format_datetime, parseaddr
 from hashlib import sha256
 from html import unescape
-from typing import Callable, Iterable
-from urllib.parse import urlencode
-from urllib.request import urlopen
+from typing import Iterable
 from zoneinfo import ZoneInfo
 
 QUEUE_SHEET = "OutreachQueue"
@@ -39,6 +37,7 @@ OPT_OUT_PHRASES = (
     "unsubscribe", "remove me", "stop emailing", "do not email", "don't email",
     "no more emails", "afmelden", "uitschrijven", "verwijder mij", "geen mails meer",
 )
+SHORT_OPT_OUT_REPLIES = {"nee", "nee bedankt", "geen interesse"}
 
 
 @dataclass(frozen=True)
@@ -59,7 +58,6 @@ class Settings:
     mail_password: str
     sender_name: str
     sender_email: str
-    reoon_api_key: str
 
     @staticmethod
     def from_env() -> "Settings":
@@ -89,7 +87,6 @@ class Settings:
             mail_password=os.getenv("OUTREACH_MAIL_PASSWORD", ""),
             sender_name=os.getenv("OUTREACH_SENDER_NAME", ""),
             sender_email=os.getenv("OUTREACH_SENDER_EMAIL", ""),
-            reoon_api_key=os.getenv("REOON_API_KEY", ""),
         )
 
 
@@ -151,17 +148,6 @@ def verification_is_fresh(row: dict[str, str], now: datetime, max_age_days: int)
     return bool(checked and now - checked <= timedelta(days=max_age_days))
 
 
-def reoon_verify(address: str, api_key: str, opener: Callable = urlopen) -> dict:
-    if not api_key:
-        raise RuntimeError("REOON_API_KEY is required in verify/live mode")
-    query = urlencode({"email": address, "key": api_key, "mode": "power"})
-    with opener("https://emailverifier.reoon.com/api/v1/verify?" + query, timeout=90) as response:
-        payload = json.loads(response.read().decode("utf-8"))
-    if not isinstance(payload, dict):
-        raise RuntimeError("unexpected verifier response")
-    return payload
-
-
 def normalize_address(value: str) -> str:
     return parseaddr(value or "")[1].strip().lower()
 
@@ -171,9 +157,21 @@ def domain_of(address: str) -> str:
     return address.rsplit("@", 1)[1] if "@" in address else ""
 
 
+def _short_reply(value: str) -> str:
+    value = re.sub(r"\s+", " ", value.lower()).strip()
+    return value.strip(" .,!?:;\"'")
+
+
 def message_has_optout(text: str) -> bool:
     normalized = re.sub(r"\s+", " ", (text or "").lower())
-    return any(phrase in normalized for phrase in OPT_OUT_PHRASES)
+    if any(phrase in normalized for phrase in OPT_OUT_PHRASES):
+        return True
+    for line in (text or "").splitlines():
+        candidate = _short_reply(line)
+        if not candidate:
+            continue
+        return candidate in SHORT_OPT_OUT_REPLIES
+    return False
 
 
 def html_to_text(value: str) -> str:
@@ -472,20 +470,11 @@ def process() -> int:
         if action == "initial" and not verification_is_fresh(row, now, settings.verification_max_age_days):
             if settings.mode == "validate":
                 print(f"{row.get('lead_id')}: verification required")
-                continue
-            result = reoon_verify(row["email"], settings.reoon_api_key)
-            decision = verification_decision(result)
-            row.update(
-                verification_status=decision,
-                verification_checked_at=iso(now),
-                last_error="" if decision == "safe" else f"verifier status={result.get('status', '')}"[:500],
-            )
-            if decision != "safe":
-                row["status"] = decision
-            update_row(service, settings.spreadsheet_id, QUEUE_SHEET, idx + 2, queue_headers, row)
-            log_event(service, settings, row, "verified_safe" if decision == "safe" else decision, detail="Reoon power mode" if decision == "safe" else row["last_error"])
-            if decision != "safe":
-                continue
+            else:
+                row.update(status="verification_pending", last_error="fresh verifier readback required")
+                update_row(service, settings.spreadsheet_id, QUEUE_SHEET, idx + 2, queue_headers, row)
+                log_event(service, settings, row, "verification_pending", detail=row["last_error"])
+            continue
 
         if settings.mode != "live":
             continue
