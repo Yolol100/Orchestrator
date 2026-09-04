@@ -33,15 +33,31 @@ jobs:
       - name: Install outreach runtime dependencies
         run: python3 -m pip install --disable-pip-version-check --requirement requirements-outreach.txt
 
-      - name: Run sender preflight
+      - name: Resolve campaign pacing policy
+        id: policy
         env:
           OUTREACH_MODE: ${{ vars.OUTREACH_MODE }}
+          OUTREACH_TIMEZONE: ${{ vars.OUTREACH_TIMEZONE }}
+          OUTREACH_DAILY_LIMIT: ${{ vars.OUTREACH_DAILY_LIMIT }}
+          OUTREACH_MAX_SENDS_PER_RUN: ${{ vars.OUTREACH_MAX_SENDS_PER_RUN }}
+          OUTREACH_NATURAL_PACING: ${{ vars.OUTREACH_NATURAL_PACING }}
+          OUTREACH_CAMPAIGN_START_DATE: ${{ vars.OUTREACH_CAMPAIGN_START_DATE }}
+          OUTREACH_CAMPAIGN_END_DATE: ${{ vars.OUTREACH_CAMPAIGN_END_DATE }}
+          OUTREACH_SLOW_RAMP_ENABLED: ${{ vars.OUTREACH_SLOW_RAMP_ENABLED }}
+          OUTREACH_RAMP_START_DATE: ${{ vars.OUTREACH_RAMP_START_DATE }}
+          OUTREACH_RAMP_START_LIMIT: ${{ vars.OUTREACH_RAMP_START_LIMIT }}
+          OUTREACH_RAMP_INCREMENT_PER_DAY: ${{ vars.OUTREACH_RAMP_INCREMENT_PER_DAY }}
+        run: python3 scripts/outreach_campaign_policy.py
+
+      - name: Run sender preflight
+        env:
+          OUTREACH_MODE: ${{ steps.policy.outputs.effective_mode }}
           OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
           OUTREACH_TIMEZONE: ${{ vars.OUTREACH_TIMEZONE }}
           OUTREACH_SEND_WINDOW_START: ${{ vars.OUTREACH_SEND_WINDOW_START }}
           OUTREACH_SEND_WINDOW_END: ${{ vars.OUTREACH_SEND_WINDOW_END }}
-          OUTREACH_DAILY_LIMIT: ${{ vars.OUTREACH_DAILY_LIMIT }}
-          OUTREACH_MAX_SENDS_PER_RUN: ${{ vars.OUTREACH_MAX_SENDS_PER_RUN }}
+          OUTREACH_DAILY_LIMIT: ${{ steps.policy.outputs.effective_daily_limit }}
+          OUTREACH_MAX_SENDS_PER_RUN: ${{ steps.policy.outputs.effective_max_sends_per_run }}
           OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
           OUTREACH_SMTP_HOST: ${{ vars.OUTREACH_SMTP_HOST }}
           OUTREACH_SMTP_PORT: ${{ vars.OUTREACH_SMTP_PORT }}
@@ -58,7 +74,7 @@ jobs:
 
       - name: Verify pending outreach emails
         env:
-          OUTREACH_MODE: ${{ vars.OUTREACH_MODE }}
+          OUTREACH_MODE: ${{ steps.policy.outputs.effective_mode }}
           OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
           OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
           OUTREACH_MAX_VERIFICATIONS_PER_RUN: ${{ vars.OUTREACH_MAX_VERIFICATIONS_PER_RUN }}
@@ -68,13 +84,13 @@ jobs:
 
       - name: Process approved outreach queue
         env:
-          OUTREACH_MODE: ${{ vars.OUTREACH_MODE }}
+          OUTREACH_MODE: ${{ steps.policy.outputs.effective_mode }}
           OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
           OUTREACH_TIMEZONE: ${{ vars.OUTREACH_TIMEZONE }}
           OUTREACH_SEND_WINDOW_START: ${{ vars.OUTREACH_SEND_WINDOW_START }}
           OUTREACH_SEND_WINDOW_END: ${{ vars.OUTREACH_SEND_WINDOW_END }}
-          OUTREACH_DAILY_LIMIT: ${{ vars.OUTREACH_DAILY_LIMIT }}
-          OUTREACH_MAX_SENDS_PER_RUN: ${{ vars.OUTREACH_MAX_SENDS_PER_RUN }}
+          OUTREACH_DAILY_LIMIT: ${{ steps.policy.outputs.effective_daily_limit }}
+          OUTREACH_MAX_SENDS_PER_RUN: ${{ steps.policy.outputs.effective_max_sends_per_run }}
           OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
           OUTREACH_SMTP_HOST: ${{ vars.OUTREACH_SMTP_HOST }}
           OUTREACH_SMTP_PORT: ${{ vars.OUTREACH_SMTP_PORT }}
@@ -86,3 +102,16 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}
         run: python3 scripts/outreach_sender.py
+
+      - name: Summarize outreach analytics
+        if: always()
+        continue-on-error: true
+        env:
+          OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
+          OUTREACH_TIMEZONE: ${{ vars.OUTREACH_TIMEZONE }}
+          OUTREACH_POLICY_REASON: ${{ steps.policy.outputs.reason }}
+          OUTREACH_EFFECTIVE_MODE: ${{ steps.policy.outputs.effective_mode }}
+          OUTREACH_EFFECTIVE_DAILY_LIMIT: ${{ steps.policy.outputs.effective_daily_limit }}
+          OUTREACH_EFFECTIVE_MAX_SENDS_PER_RUN: ${{ steps.policy.outputs.effective_max_sends_per_run }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/outreach_analytics.py
