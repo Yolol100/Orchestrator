@@ -9,6 +9,7 @@ from typing import Callable, Iterable
 
 import dns.resolver
 
+from outreach_mailboxes import MailboxConfig, enabled_mailboxes, load_mailboxes_from_env
 from outreach_sender import (
     LOG_HEADERS,
     LOG_SHEET,
@@ -21,7 +22,6 @@ from outreach_sender import (
     domain_of,
     ensure_expected_headers,
     get_values,
-    normalize_address,
     rows_from_values,
 )
 
@@ -45,35 +45,40 @@ def _txt_values(name: str, resolver: Callable[[str, str], Iterable] = dns.resolv
     return values
 
 
-def validate_static(settings: Settings, dkim_selector: str, required_spf_token: str) -> list[str]:
+def validate_static(settings: Settings) -> list[str]:
     errors: list[str] = []
-    sender = normalize_address(settings.sender_email)
-    user = normalize_address(settings.mail_user)
     if not settings.spreadsheet_id:
         errors.append("OUTREACH_SPREADSHEET_ID is required")
-    if not sender or "@" not in sender:
-        errors.append("OUTREACH_SENDER_EMAIL must be a valid email address")
-    if not user or "@" not in user:
-        errors.append("OUTREACH_MAIL_USER must be a valid email address")
-    if sender and user and domain_of(sender) != domain_of(user):
-        errors.append("sender email and mailbox user must use the same domain")
-    if not settings.sender_name.strip():
-        errors.append("OUTREACH_SENDER_NAME is required")
-    if not settings.smtp_host.strip():
-        errors.append("OUTREACH_SMTP_HOST is required")
-    if settings.smtp_port not in {465, 587}:
-        errors.append("OUTREACH_SMTP_PORT must be 465 or 587")
-    if not settings.imap_host.strip():
-        errors.append("OUTREACH_IMAP_HOST is required")
-    if settings.imap_port != 993:
-        errors.append("OUTREACH_IMAP_PORT must be 993 for the guarded runtime")
-    if settings.mode == "live" and not settings.mail_password:
-        errors.append("OUTREACH_MAIL_PASSWORD is required in live mode")
-    if settings.mode == "live" and not dkim_selector:
-        errors.append("OUTREACH_DKIM_SELECTOR is required in live mode")
-    if required_spf_token and any(ch.isspace() for ch in required_spf_token):
-        errors.append("OUTREACH_REQUIRED_SPF_TOKEN must be one SPF token without whitespace")
+    if settings.mode not in {"validate", "verify", "live"}:
+        errors.append("OUTREACH_MODE must be validate, verify, or live")
     return errors
+
+
+def validate_mailbox_static(mailbox: MailboxConfig, mode: str) -> list[str]:
+    errors: list[str] = []
+    if "@" not in mailbox.sender_email:
+        errors.append("sender_email must be a valid email address")
+    if "@" not in mailbox.mail_user:
+        errors.append("mail_user must be a valid email address")
+    if mailbox.sender_email and mailbox.mail_user and domain_of(mailbox.sender_email) != domain_of(mailbox.mail_user):
+        errors.append("sender_email and mail_user must use the same domain")
+    if not mailbox.sender_name.strip():
+        errors.append("sender_name is required")
+    if not mailbox.smtp_host.strip():
+        errors.append("smtp_host is required")
+    if mailbox.smtp_port not in {465, 587}:
+        errors.append("smtp_port must be 465 or 587")
+    if not mailbox.imap_host.strip():
+        errors.append("imap_host is required")
+    if mailbox.imap_port != 993:
+        errors.append("imap_port must be 993")
+    if mode == "live" and mailbox.enabled and not mailbox.mail_password:
+        errors.append("password is required in live mode")
+    if mode == "live" and mailbox.enabled and not mailbox.dkim_selector:
+        errors.append("dkim_selector is required in live mode")
+    if mailbox.required_spf_token and any(ch.isspace() for ch in mailbox.required_spf_token):
+        errors.append("required_spf_token must be one SPF token without whitespace")
+    return [f"mailbox {mailbox.mailbox_id}: {error}" for error in errors]
 
 
 def check_dns_authentication(
@@ -139,62 +144,78 @@ def check_sheet_contract(service, spreadsheet_id: str) -> list[str]:
 
 
 def check_mailbox_auth(
-    settings: Settings,
+    mailbox: MailboxConfig,
+    mode: str,
     smtp_factory: Callable = smtplib.SMTP,
     smtp_ssl_factory: Callable = smtplib.SMTP_SSL,
     imap_factory: Callable = imaplib.IMAP4_SSL,
 ) -> list[str]:
-    if settings.mode != "live":
+    if mode != "live" or not mailbox.enabled:
         return []
     context = ssl.create_default_context()
-    if settings.smtp_port == 465:
-        with smtp_ssl_factory(settings.smtp_host, settings.smtp_port, context=context, timeout=30) as smtp:
-            smtp.login(settings.mail_user, settings.mail_password)
+    if mailbox.smtp_port == 465:
+        with smtp_ssl_factory(mailbox.smtp_host, mailbox.smtp_port, context=context, timeout=30) as smtp:
+            smtp.login(mailbox.mail_user, mailbox.mail_password)
     else:
-        with smtp_factory(settings.smtp_host, settings.smtp_port, timeout=30) as smtp:
+        with smtp_factory(mailbox.smtp_host, mailbox.smtp_port, timeout=30) as smtp:
             smtp.ehlo()
             if not smtp.has_extn("starttls"):
-                raise RuntimeError("SMTP server does not advertise STARTTLS")
+                raise RuntimeError(f"SMTP server does not advertise STARTTLS for mailbox {mailbox.mailbox_id}")
             smtp.starttls(context=context)
             smtp.ehlo()
-            smtp.login(settings.mail_user, settings.mail_password)
+            smtp.login(mailbox.mail_user, mailbox.mail_password)
 
-    with imap_factory(settings.imap_host, settings.imap_port, ssl_context=context) as imap:
-        imap.login(settings.mail_user, settings.mail_password)
+    with imap_factory(mailbox.imap_host, mailbox.imap_port, ssl_context=context) as imap:
+        imap.login(mailbox.mail_user, mailbox.mail_password)
         status, _ = imap.noop()
         if status != "OK":
-            raise RuntimeError("IMAP NOOP failed")
-    return ["smtp-auth", "imap-auth"]
+            raise RuntimeError(f"IMAP NOOP failed for mailbox {mailbox.mailbox_id}")
+    return [f"mailbox:{mailbox.mailbox_id}:smtp-auth", f"mailbox:{mailbox.mailbox_id}:imap-auth"]
 
 
 def run_preflight() -> PreflightReport:
     settings = Settings.from_env()
-    dkim_selector = os.getenv("OUTREACH_DKIM_SELECTOR", "").strip()
-    required_spf_token = os.getenv("OUTREACH_REQUIRED_SPF_TOKEN", "").strip()
-    errors = validate_static(settings, dkim_selector, required_spf_token)
+    errors = validate_static(settings)
+    try:
+        mailboxes = load_mailboxes_from_env(mode=settings.mode, default_daily_limit=settings.daily_send_limit)
+    except ValueError as exc:
+        errors.append(str(exc))
+        mailboxes = []
+    for mailbox in mailboxes:
+        errors.extend(validate_mailbox_static(mailbox, settings.mode))
     if errors:
         raise RuntimeError("preflight configuration failed: " + "; ".join(errors))
 
-    checks: list[str] = ["config"]
+    active = enabled_mailboxes(mailboxes)
+    checks: list[str] = ["config", f"mailbox-pool:{len(active)}"]
     warnings: list[str] = []
-    sender_domain = domain_of(settings.sender_email)
+    seen_dns: set[tuple[str, str, str]] = set()
 
-    dns_errors, dns_checks = check_dns_authentication(
-        sender_domain,
-        dkim_selector,
-        required_spf_token,
-    )
-    if dns_errors:
-        raise RuntimeError("preflight DNS authentication failed: " + "; ".join(dns_errors))
-    checks.extend(dns_checks)
-    if not dkim_selector:
-        warnings.append("DKIM selector not supplied; live mode will fail closed")
+    for mailbox in active:
+        sender_domain = domain_of(mailbox.sender_email)
+        dns_key = (sender_domain, mailbox.dkim_selector, mailbox.required_spf_token)
+        if dns_key in seen_dns:
+            checks.append(f"mailbox:{mailbox.mailbox_id}:dns-shared")
+            continue
+        seen_dns.add(dns_key)
+        dns_errors, dns_checks = check_dns_authentication(
+            sender_domain,
+            mailbox.dkim_selector,
+            mailbox.required_spf_token,
+        )
+        if dns_errors:
+            prefixed = [f"mailbox {mailbox.mailbox_id}: {error}" for error in dns_errors]
+            raise RuntimeError("preflight DNS authentication failed: " + "; ".join(prefixed))
+        checks.extend(f"mailbox:{mailbox.mailbox_id}:{check}" for check in dns_checks)
+        if not mailbox.dkim_selector:
+            warnings.append(f"mailbox {mailbox.mailbox_id}: DKIM selector not supplied; live mode will fail closed")
 
     if not os.getenv("GOOGLE_SERVICE_ACCOUNT_JSON", "").strip():
         raise RuntimeError("GOOGLE_SERVICE_ACCOUNT_JSON is required for Sheet preflight")
     service = build_sheets_service()
     checks.extend(check_sheet_contract(service, settings.spreadsheet_id))
-    checks.extend(check_mailbox_auth(settings))
+    for mailbox in active:
+        checks.extend(check_mailbox_auth(mailbox, settings.mode))
 
     return PreflightReport(tuple(checks), tuple(warnings))
 
