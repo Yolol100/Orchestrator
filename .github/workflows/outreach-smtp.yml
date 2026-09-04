@@ -59,6 +59,9 @@ jobs:
           OUTREACH_DAILY_LIMIT: ${{ steps.policy.outputs.effective_daily_limit }}
           OUTREACH_MAX_SENDS_PER_RUN: ${{ steps.policy.outputs.effective_max_sends_per_run }}
           OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
+          OUTREACH_MAILBOX_ID: ${{ vars.OUTREACH_MAILBOX_ID }}
+          OUTREACH_MAILBOX_DAILY_LIMIT: ${{ vars.OUTREACH_MAILBOX_DAILY_LIMIT }}
+          OUTREACH_MAILBOX_MIN_WAIT_MINUTES: ${{ vars.OUTREACH_MAILBOX_MIN_WAIT_MINUTES }}
           OUTREACH_SMTP_HOST: ${{ vars.OUTREACH_SMTP_HOST }}
           OUTREACH_SMTP_PORT: ${{ vars.OUTREACH_SMTP_PORT }}
           OUTREACH_IMAP_HOST: ${{ vars.OUTREACH_IMAP_HOST }}
@@ -70,6 +73,7 @@ jobs:
           OUTREACH_REQUIRED_SPF_TOKEN: ${{ vars.OUTREACH_REQUIRED_SPF_TOKEN }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}
+          OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}
         run: python3 scripts/outreach_preflight.py
 
       - name: Verify pending outreach emails
@@ -92,6 +96,9 @@ jobs:
           OUTREACH_DAILY_LIMIT: ${{ steps.policy.outputs.effective_daily_limit }}
           OUTREACH_MAX_SENDS_PER_RUN: ${{ steps.policy.outputs.effective_max_sends_per_run }}
           OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
+          OUTREACH_MAILBOX_ID: ${{ vars.OUTREACH_MAILBOX_ID }}
+          OUTREACH_MAILBOX_DAILY_LIMIT: ${{ vars.OUTREACH_MAILBOX_DAILY_LIMIT }}
+          OUTREACH_MAILBOX_MIN_WAIT_MINUTES: ${{ vars.OUTREACH_MAILBOX_MIN_WAIT_MINUTES }}
           OUTREACH_SMTP_HOST: ${{ vars.OUTREACH_SMTP_HOST }}
           OUTREACH_SMTP_PORT: ${{ vars.OUTREACH_SMTP_PORT }}
           OUTREACH_IMAP_HOST: ${{ vars.OUTREACH_IMAP_HOST }}
@@ -99,8 +106,11 @@ jobs:
           OUTREACH_MAIL_USER: ${{ vars.OUTREACH_MAIL_USER }}
           OUTREACH_SENDER_NAME: ${{ vars.OUTREACH_SENDER_NAME }}
           OUTREACH_SENDER_EMAIL: ${{ vars.OUTREACH_SENDER_EMAIL }}
+          OUTREACH_DKIM_SELECTOR: ${{ vars.OUTREACH_DKIM_SELECTOR }}
+          OUTREACH_REQUIRED_SPF_TOKEN: ${{ vars.OUTREACH_REQUIRED_SPF_TOKEN }}
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}
+          OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}
         run: python3 scripts/outreach_sender.py
 
       - name: Summarize outreach analytics
