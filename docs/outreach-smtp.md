@@ -8,6 +8,9 @@ This runtime is transport only. It does not decide lead fit, invent contact data
 - Start with `OUTREACH_MODE=validate`, then `verify`, and only use `live` after sender preflight and a reviewed test cohort.
 - `OUTREACH_DAILY_LIMIT` defaults to 20 in code and is hard capped at 100.
 - `OUTREACH_MAX_SENDS_PER_RUN` defaults to 2 and is hard capped at 10.
+- `OUTREACH_MAX_VERIFICATIONS_PER_RUN` defaults to 50 and is hard capped at 500, so verification spend is bounded per run.
+- Reoon routing follows its documented API split: fewer than 10 pending addresses use the single Power endpoint; 10 or more use one Bulk Verification task, whose results are polled until completed. Deferred rows are marked `verification_pending` and cannot enter the sender until a later verification run.
+- The sender step itself does not receive `REOON_API_KEY`; verification is isolated in the preprocessor. A late/unverified approved row therefore fails closed rather than silently bypassing the verifier routing.
 - Only rows with `status=approved`, `compliance_status=approved`, a fresh Reoon `safe` result, and `opt_out_mode=reply_optout` may enter direct SMTP sending.
 - `provider_required` is intentionally blocked in this direct SMTP runtime. If one-click/header unsubscribe is required, use a provider that implements that mechanism.
 - `catch_all`, `unknown`, `role_account`, and `inbox_full` go to manual review. `invalid`, `disabled`, `disposable`, and `spamtrap` are blocked.
@@ -47,6 +50,7 @@ Recommended initial values:
 - `OUTREACH_SEND_WINDOW_END=18:00`
 - `OUTREACH_DAILY_LIMIT=20`
 - `OUTREACH_MAX_SENDS_PER_RUN=2`
+- `OUTREACH_MAX_VERIFICATIONS_PER_RUN=50`
 - `OUTREACH_VERIFICATION_MAX_AGE_DAYS=30`
 - `OUTREACH_SMTP_HOST=mail.andrewbaeten.nl`
 - `OUTREACH_SMTP_PORT=587`
@@ -62,7 +66,7 @@ Confirm the exact mail host in the mailbox configuration before live mode. The c
 
 1. Keep `OUTREACH_ENABLED=false` while configuring secrets and sharing the Sheet with the service account.
 2. Set `OUTREACH_ENABLED=true` and `OUTREACH_MODE=validate`. Run manually. This checks queue gates but does not call the verifier or send mail.
-3. Set `OUTREACH_MODE=verify`. Run manually on a small reviewed queue. This calls Reoon Power Mode but does not send mail.
+3. Set `OUTREACH_MODE=verify`. Run manually on a small reviewed queue. This calls Reoon Power verification through the documented single/bulk route but does not send mail.
 4. Review verification statuses, suppression behavior, SPF/DKIM/DMARC, mailbox/provider status, compliance and message content.
 5. Set `OUTREACH_MODE=live` with the small default limits. Run manually before relying on the schedule.
 6. Verify the received message headers, provider readback, reply stop, bounce handling and suppression behavior.
@@ -70,6 +74,6 @@ Confirm the exact mail host in the mailbox configuration before live mode. The c
 
 ## Workflow schedule
 
-The GitHub Actions schedule checks the queue every 15 minutes on weekdays during a broad UTC window. The Python runtime independently enforces the configured `Europe/Amsterdam` send window, so a delayed or timezone-shifted scheduled run cannot send outside that local window.
+The GitHub Actions schedule checks the queue every 15 minutes on weekdays at minute 7/22/37/52 during a broad UTC window. The offset avoids the highest-load start-of-hour pattern called out by GitHub. The Python runtime independently enforces the configured `Europe/Amsterdam` send window, so a delayed or timezone-shifted scheduled run cannot send outside that local window.
 
 GitHub scheduled workflows execute only from the default branch. The schedule therefore becomes eligible only after this workflow is merged to the default branch, and the `OUTREACH_ENABLED` gate still prevents execution until explicitly enabled.
