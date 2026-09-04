@@ -130,7 +130,7 @@ class WorkflowSecurityTests(unittest.TestCase):
             self.assertIn("info@andrewbaeten.nl", text)
             self.assertIn("include:spf.mijn.host", text)
             self.assertIn("vars.OUTREACH_DKIM_SELECTOR || 'x'", text)
-            self.assertNotIn("OUTREACH_MAIL_PASSWORD: Vissen", text)
+            self.assertIn("OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}", text)
 
     def test_scheduled_outreach_stays_disabled_but_manual_dispatch_is_allowed(self):
         text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
