@@ -1,0 +1,67 @@
+name: Prepare Outreach in mijn.host Drafts
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: controlled-mailbox-drafts
+  cancel-in-progress: false
+
+jobs:
+  drafts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-outreach.txt
+
+      - name: Install outreach runtime dependencies
+        run: python3 -m pip install --disable-pip-version-check --requirement requirements-outreach.txt
+
+      - name: Run extended outreach contract preflight
+        env:
+          OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/outreach_extended_preflight.py
+
+      - name: Validate outreach compliance state
+        env:
+          OUTREACH_MODE: validate
+          OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/outreach_compliance_preflight.py
+
+      - name: Save approved initial emails to mijn.host Drafts
+        env:
+          OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
+          OUTREACH_DAILY_LIMIT: ${{ vars.OUTREACH_DAILY_LIMIT }}
+          OUTREACH_MAX_DRAFTS_PER_RUN: ${{ vars.OUTREACH_MAX_DRAFTS_PER_RUN }}
+          OUTREACH_RANDOM_JITTER_MINUTES: ${{ vars.OUTREACH_RANDOM_JITTER_MINUTES }}
+          OUTREACH_MAILBOX_ID: ${{ vars.OUTREACH_MAILBOX_ID }}
+          OUTREACH_MAILBOX_DAILY_LIMIT: ${{ vars.OUTREACH_MAILBOX_DAILY_LIMIT }}
+          OUTREACH_MAILBOX_MIN_WAIT_MINUTES: ${{ vars.OUTREACH_MAILBOX_MIN_WAIT_MINUTES }}
+          OUTREACH_SMTP_HOST: ${{ vars.OUTREACH_SMTP_HOST }}
+          OUTREACH_SMTP_PORT: ${{ vars.OUTREACH_SMTP_PORT }}
+          OUTREACH_IMAP_HOST: ${{ vars.OUTREACH_IMAP_HOST }}
+          OUTREACH_IMAP_PORT: ${{ vars.OUTREACH_IMAP_PORT }}
+          OUTREACH_MAIL_USER: ${{ vars.OUTREACH_MAIL_USER }}
+          OUTREACH_SENDER_NAME: ${{ vars.OUTREACH_SENDER_NAME }}
+          OUTREACH_SENDER_EMAIL: ${{ vars.OUTREACH_SENDER_EMAIL }}
+          OUTREACH_DKIM_SELECTOR: ${{ vars.OUTREACH_DKIM_SELECTOR }}
+          OUTREACH_REQUIRED_SPF_TOKEN: ${{ vars.OUTREACH_REQUIRED_SPF_TOKEN }}
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}
+          OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}
+        run: python3 scripts/outreach_drafts.py
