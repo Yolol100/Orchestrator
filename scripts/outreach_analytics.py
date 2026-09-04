@@ -59,6 +59,23 @@ def build_metrics(rows: Iterable[dict[str, str]], now: datetime, timezone_name: 
         (row.get("verification_status", "") or "blank").strip().lower() or "blank" for row in rows
     )
 
+    mailbox_assignments = Counter(
+        (row.get("sender_mailbox_id", "") or "unassigned").strip() or "unassigned"
+        for row in rows
+        if parse_dt(row.get("sent_at", "")) or parse_dt(row.get("followup_sent_at", ""))
+    )
+    mailbox_send_totals: Counter[str] = Counter()
+    mailbox_send_today: Counter[str] = Counter()
+    for row in rows:
+        mailbox_id = (row.get("sender_mailbox_id", "") or "unassigned").strip() or "unassigned"
+        for key in ("sent_at", "followup_sent_at"):
+            dt = parse_dt(row.get(key, ""))
+            if not dt:
+                continue
+            mailbox_send_totals[mailbox_id] += 1
+            if dt.astimezone(tz).date() == today:
+                mailbox_send_today[mailbox_id] += 1
+
     return {
         "total_rows": len(rows),
         "status_counts": dict(sorted(status_counts.items())),
@@ -75,6 +92,9 @@ def build_metrics(rows: Iterable[dict[str, str]], now: datetime, timezone_name: 
         "replied": replied,
         "bounced": bounced,
         "opted_out": opted_out,
+        "mailbox_assignments": dict(sorted(mailbox_assignments.items())),
+        "mailbox_send_totals": dict(sorted(mailbox_send_totals.items())),
+        "mailbox_send_today": dict(sorted(mailbox_send_today.items())),
     }
 
 
@@ -89,8 +109,14 @@ def render_markdown(
 ) -> str:
     status_counts = metrics["status_counts"]
     verification_counts = metrics["verification_counts"]
+    mailbox_totals = metrics["mailbox_send_totals"]
+    mailbox_today = metrics["mailbox_send_today"]
     status_text = ", ".join(f"{key}={value}" for key, value in status_counts.items()) or "none"
     verification_text = ", ".join(f"{key}={value}" for key, value in verification_counts.items()) or "none"
+    mailbox_text = ", ".join(
+        f"{mailbox_id}={total} total/{mailbox_today.get(mailbox_id, 0)} today"
+        for mailbox_id, total in mailbox_totals.items()
+    ) or "none"
 
     lines = [
         "## Controlled outreach analytics",
@@ -106,6 +132,7 @@ def render_markdown(
         f"- suppression rows: **{suppression_count}**",
         f"- status mix: `{status_text}`",
         f"- verification mix: `{verification_text}`",
+        f"- mailbox send mix: `{mailbox_text}`",
     ]
     if policy_reason:
         lines.extend(

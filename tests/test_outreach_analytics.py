@@ -16,18 +16,21 @@ class OutreachAnalyticsTests(unittest.TestCase):
                 "sent_at": "2026-09-04T07:00:00Z",
                 "followup_sent_at": "",
                 "verification_status": "safe",
+                "sender_mailbox_id": "one",
             },
             {
                 "status": "bounced",
                 "sent_at": "2026-09-04T07:30:00Z",
                 "followup_sent_at": "",
                 "verification_status": "safe",
+                "sender_mailbox_id": "two",
             },
             {
                 "status": "opted_out",
                 "sent_at": "2026-09-03T07:30:00Z",
                 "followup_sent_at": "2026-09-04T08:30:00Z",
                 "verification_status": "safe",
+                "sender_mailbox_id": "one",
             },
             {
                 "status": "approved",
@@ -51,6 +54,8 @@ class OutreachAnalyticsTests(unittest.TestCase):
         self.assertEqual(metrics["reply_rate"], 33.33)
         self.assertEqual(metrics["bounce_rate"], 33.33)
         self.assertEqual(metrics["opt_out_rate"], 33.33)
+        self.assertEqual(metrics["mailbox_send_totals"], {"one": 3, "two": 1})
+        self.assertEqual(metrics["mailbox_send_today"], {"one": 2, "two": 1})
 
     def test_due_followup_and_ready_initial_are_counted(self):
         rows = [
@@ -76,7 +81,7 @@ class OutreachAnalyticsTests(unittest.TestCase):
         self.assertEqual(metrics["ready_initial"], 1)
         self.assertEqual(metrics["due_followup"], 1)
 
-    def test_markdown_includes_policy_without_claiming_delivery(self):
+    def test_markdown_includes_policy_and_mailbox_mix_without_claiming_delivery(self):
         metrics = {
             "total_rows": 1,
             "status_counts": {"sent": 1},
@@ -93,6 +98,9 @@ class OutreachAnalyticsTests(unittest.TestCase):
             "replied": 0,
             "bounced": 0,
             "opted_out": 0,
+            "mailbox_assignments": {"one": 1},
+            "mailbox_send_totals": {"one": 1},
+            "mailbox_send_today": {"one": 1},
         }
         report = a.render_markdown(
             metrics,
@@ -105,6 +113,7 @@ class OutreachAnalyticsTests(unittest.TestCase):
         self.assertIn("SMTP-accepted", report)
         self.assertIn("not proof of inbox placement", report)
         self.assertIn("effective daily limit: `8`", report)
+        self.assertIn("one=1 total/1 today", report)
 
 
 if __name__ == "__main__":

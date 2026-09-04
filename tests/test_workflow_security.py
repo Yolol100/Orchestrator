@@ -60,11 +60,29 @@ class WorkflowSecurityTests(unittest.TestCase):
         )[0]
         self.assertNotIn("REOON_API_KEY", sender)
 
+    def test_mailbox_pool_secret_is_scoped_to_preflight_and_sender(self):
+        text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
+        preflight = text.split("- name: Run sender preflight", 1)[1].split(
+            "- name: Verify pending outreach emails", 1
+        )[0]
+        verifier = text.split("- name: Verify pending outreach emails", 1)[1].split(
+            "- name: Process approved outreach queue", 1
+        )[0]
+        sender = text.split("- name: Process approved outreach queue", 1)[1].split(
+            "- name: Summarize outreach analytics", 1
+        )[0]
+        analytics = text.split("- name: Summarize outreach analytics", 1)[1]
+        self.assertIn("OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}", preflight)
+        self.assertIn("OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}", sender)
+        self.assertNotIn("OUTREACH_MAILBOXES_JSON", verifier)
+        self.assertNotIn("OUTREACH_MAILBOXES_JSON", analytics)
+
     def test_analytics_is_readback_only_and_non_blocking(self):
         text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
         analytics = text.split("- name: Summarize outreach analytics", 1)[1]
         self.assertIn("continue-on-error: true", analytics)
         self.assertNotIn("OUTREACH_MAIL_PASSWORD", analytics)
+        self.assertNotIn("OUTREACH_MAILBOXES_JSON", analytics)
         self.assertNotIn("REOON_API_KEY", analytics)
 
     def test_outreach_job_remains_disabled_without_explicit_flag(self):

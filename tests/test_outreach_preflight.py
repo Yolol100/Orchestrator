@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+import outreach_mailboxes as m
 import outreach_preflight as p
 import outreach_sender as o
 
@@ -60,7 +61,7 @@ class FakeIMAP:
         return "OK", [b""]
 
 
-def settings(mode="validate", password="secret"):
+def settings(mode="validate"):
     return o.Settings(
         spreadsheet_id="sheet-id",
         mode=mode,
@@ -75,17 +76,36 @@ def settings(mode="validate", password="secret"):
         imap_host="mail.example.com",
         imap_port=993,
         mail_user="info@example.com",
-        mail_password=password,
+        mail_password="secret",
         sender_name="Andrew",
         sender_email="info@example.com",
     )
 
 
+def mailbox(mailbox_id="one", password="secret", dkim_selector="x", enabled=True):
+    return m.MailboxConfig(
+        mailbox_id=mailbox_id,
+        enabled=enabled,
+        smtp_host="mail.example.com",
+        smtp_port=587,
+        imap_host="mail.example.com",
+        imap_port=993,
+        mail_user=f"{mailbox_id}@example.com",
+        mail_password=password,
+        sender_name="Andrew",
+        sender_email=f"{mailbox_id}@example.com",
+        daily_limit=20,
+        min_wait_minutes=1,
+        dkim_selector=dkim_selector,
+        required_spf_token="include:spf.mijn.host",
+    )
+
+
 class OutreachPreflightTests(unittest.TestCase):
-    def test_static_live_requires_dkim_and_password(self):
-        errors = p.validate_static(settings(mode="live", password=""), "", "include:spf.mijn.host")
-        self.assertTrue(any("OUTREACH_MAIL_PASSWORD" in item for item in errors))
-        self.assertTrue(any("OUTREACH_DKIM_SELECTOR" in item for item in errors))
+    def test_static_live_requires_mailbox_dkim_and_password(self):
+        errors = p.validate_mailbox_static(mailbox(password="", dkim_selector=""), "live")
+        self.assertTrue(any("password is required" in item for item in errors))
+        self.assertTrue(any("dkim_selector is required" in item for item in errors))
 
     def test_dns_authentication_accepts_spf_dmarc_dkim(self):
         records = {
@@ -134,15 +154,19 @@ class OutreachPreflightTests(unittest.TestCase):
 
     def test_live_mailbox_auth_uses_starttls_and_imap_ssl(self):
         checks = p.check_mailbox_auth(
-            settings(mode="live"),
+            mailbox("one"),
+            "live",
             smtp_factory=FakeSMTP,
             smtp_ssl_factory=FakeSMTP,
             imap_factory=FakeIMAP,
         )
-        self.assertEqual(checks, ["smtp-auth", "imap-auth"])
+        self.assertEqual(checks, ["mailbox:one:smtp-auth", "mailbox:one:imap-auth"])
 
     def test_non_live_mailbox_auth_does_not_login(self):
-        self.assertEqual(p.check_mailbox_auth(settings(mode="verify")), [])
+        self.assertEqual(p.check_mailbox_auth(mailbox("one"), "verify"), [])
+
+    def test_disabled_mailbox_is_not_authenticated(self):
+        self.assertEqual(p.check_mailbox_auth(mailbox("one", enabled=False), "live"), [])
 
 
 if __name__ == "__main__":

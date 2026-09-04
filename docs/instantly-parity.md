@@ -17,8 +17,15 @@ Reference date: 2026-09-04.
 | Send schedule | Local-time weekday send window plus GitHub schedule | implemented |
 | Sender/domain health preflight | SPF, DKIM, DMARC, Sheet contract, SMTP and IMAP checks | implemented |
 | Follow-up | One pre-written threaded follow-up from the approved queue | implemented |
+| Multiple sending accounts | `OUTREACH_MAILBOXES_JSON` sender pool | implemented |
+| Per-account daily limit | `daily_limit` on each mailbox plus campaign-wide cap | implemented |
+| Per-account minimum wait | `min_wait_minutes` on each mailbox | implemented |
+| Inbox rotation | Load-aware selection across enabled mailboxes | implemented |
+| Sticky sender for follow-up | `sender_mailbox_id`/`sender_email` persisted on queue | implemented |
+| Multi-mailbox reply/bounce readback | IMAP sync over every enabled mailbox | implemented |
+| Per-mailbox send analytics | GitHub summary groups SMTP-accepted sends by mailbox ID | implemented |
 
-## Added in the Instantly-lite campaign-control layer
+## Instantly-lite campaign-control layer
 
 ### Natural pacing
 
@@ -34,30 +41,36 @@ A configuration of start `2` and increment `2` mirrors the shape of Instantly's 
 
 `OUTREACH_CAMPAIGN_START_DATE` and `OUTREACH_CAMPAIGN_END_DATE` are optional `YYYY-MM-DD` values. When a live run is outside that window, the policy layer changes the effective mode to `validate`; preflight and diagnostics can still run, but outbound mail fails closed.
 
+### Multi-mailbox rotation
+
+When `OUTREACH_MAILBOXES_JSON` is configured, initial messages rotate across enabled sending accounts that are below their own daily limit and outside their own minimum-wait interval. The campaign-wide limit and per-run limit remain separate upper bounds, so extra accounts do not multiply or bypass the campaign cap.
+
+The chosen account is persisted as `sender_mailbox_id` plus `sender_email`. Follow-ups stay on that same account. If that account is disabled, removed, out of capacity or its sender identity changed, the follow-up is deferred/fails closed instead of silently moving to another sender and breaking the original thread.
+
 ### Run analytics and diagnosis
 
-Every outreach workflow now attempts a read-only analytics summary after processing. It reports queue/status mix, verification mix, SMTP-accepted initial/follow-up counts, replies, bounces, opt-outs, suppression count and currently due work. The report deliberately calls SMTP success `SMTP-accepted`, not `delivered`, because inbox placement is not proven by an SMTP `250` response.
+Every outreach workflow attempts a read-only analytics summary after processing. It reports queue/status mix, verification mix, SMTP-accepted initial/follow-up counts, replies, bounces, opt-outs, suppression count, currently due work and the send mix per mailbox ID. The report deliberately calls SMTP success `SMTP-accepted`, not `delivered`, because inbox placement is not proven by an SMTP `250` response.
 
 ## Important gaps that remain
 
 These are the largest differences from Instantly's current product behavior:
 
-1. **Multi-account inbox rotation and per-account limits.** The current runtime still uses one SMTP/IMAP mailbox. Instantly can assign many accounts to a campaign and rotate sends while enforcing account and campaign limits.
-2. **Multi-step sequences.** The current queue supports the initial message plus one approved follow-up. Instantly supports longer sequences with independent waits.
-3. **A/Z variants and auto-optimization.** The repository does not choose copy variants. Adding this safely would require Leads to prepare approved variants and the runtime to persist deterministic variant assignment/analytics without generating copy itself.
-4. **Unified reply inbox UI.** IMAP reply detection exists, but there is no Unibox-style operator interface or reply triage screen.
-5. **Warmup network and warmup health score.** A repository cannot truthfully reproduce Instantly's mailbox warmup network, spam-folder placement observations, or network interactions without external recipient infrastructure. Do not fake this with self-mail loops.
-6. **Open/link tracking and custom tracking domains.** These are intentionally not enabled by default because tracking pixels/redirects add privacy, deliverability and infrastructure trade-offs. Reply/bounce/opt-out metrics are more reliable for this controlled route.
-7. **Lead finder/enrichment.** This remains outside the repository by design. Leads + ChatGPT owns candidate selection, evidence, dedupe, personalization and compliance.
+1. **Multi-step sequences.** The current queue supports the initial message plus one approved follow-up. Instantly supports longer sequences with independent waits.
+2. **A/Z variants and auto-optimization.** The repository does not choose copy variants. Adding this safely would require Leads to prepare approved variants and the runtime to persist deterministic variant assignment/analytics without generating copy itself.
+3. **Unified reply inbox UI.** IMAP reply detection exists across configured mailboxes, but there is no Unibox-style operator interface or reply triage screen.
+4. **Warmup network and warmup health score.** A repository cannot truthfully reproduce Instantly's mailbox warmup network, spam-folder placement observations, or network interactions without external recipient infrastructure. Do not fake this with self-mail loops.
+5. **Open/link tracking and custom tracking domains.** These are intentionally not enabled by default because tracking pixels/redirects add privacy, deliverability and infrastructure trade-offs. Reply/bounce/opt-out metrics are more reliable for this controlled route.
+6. **Lead finder/enrichment.** This remains outside the repository by design. Leads + ChatGPT owns candidate selection, evidence, dedupe, personalization and compliance.
+7. **Automatic disconnected-account takeover.** This implementation intentionally does not move an already-contacted lead to a different sender account automatically because that can break threading and weaken transport evidence. Manual reconciliation is required for that case.
 
 ## Recommended next implementation order
 
 If additional Instantly-like behavior is needed, add it in this order:
 
-1. optional multi-account sender pool with explicit per-account limits, sticky sender assignment for follow-ups, multi-mailbox IMAP readback and no bypass of `throttle/pause/blocked`;
-2. provider-neutral campaign/sequence contract that lets Leads submit more than one pre-approved follow-up without giving the repository copy ownership;
-3. deterministic A/Z assignment plus reply/bounce/opt-out analytics per approved variant;
-4. operator reply queue/readback view;
+1. provider-neutral campaign/sequence contract that lets Leads submit more than one pre-approved follow-up without giving the repository copy ownership;
+2. deterministic A/Z assignment plus reply/bounce/opt-out analytics per approved variant;
+3. operator reply queue/readback view;
+4. optional reply-to routing/consolidation only after explicit mailbox ownership and readback rules are defined;
 5. only then consider tracking-domain support, and only after a separate privacy/deliverability review.
 
 ## Current Instantly references used for this comparison
@@ -65,6 +78,7 @@ If additional Instantly-like behavior is needed, add it in this order:
 - Campaign options: https://help.instantly.ai/en/articles/6222396-campaign-options
 - Inbox rotation: https://help.instantly.ai/en/articles/7046484-inbox-rotation-assign-sending-accounts-to-a-campaign
 - Account/campaign limits: https://help.instantly.ai/en/articles/6248612-account-and-campaign-limits
+- Keep sequence in same thread: https://help.instantly.ai/en/articles/7914807-keep-email-sequences-in-the-same-thread
 - Sequences: https://help.instantly.ai/en/articles/11967303-getting-started-with-sequences-section
 - A/Z testing: https://help.instantly.ai/en/articles/6661549-a-z-testing-how-to-create-email-variants
 - Campaign slow ramp: https://help.instantly.ai/en/articles/10056946-campaign-slow-ramp-system

@@ -16,6 +16,17 @@ from html import unescape
 from typing import Iterable
 from zoneinfo import ZoneInfo
 
+from outreach_mailboxes import (
+    MailboxConfig,
+    choose_initial_mailbox,
+    count_mailbox_sends_today,
+    enabled_mailboxes,
+    last_mailbox_send_times,
+    load_mailboxes_from_env,
+    mailbox_is_available,
+    mailbox_map,
+)
+
 QUEUE_SHEET = "OutreachQueue"
 SUPPRESSION_SHEET = "Suppression"
 LOG_SHEET = "OutreachLog"
@@ -25,10 +36,13 @@ QUEUE_HEADERS = [
     "compliance_status", "opt_out_mode", "status", "verification_status",
     "verification_checked_at", "stage", "next_send_at", "sent_at",
     "followup_sent_at", "message_id", "followup_message_id", "reply_at",
-    "bounce_at", "last_error", "source",
+    "bounce_at", "last_error", "source", "sender_mailbox_id", "sender_email",
 ]
 SUPPRESSION_HEADERS = ["email", "domain", "reason", "source", "created_at", "evidence"]
-LOG_HEADERS = ["timestamp", "lead_id", "email", "event", "message_id", "detail"]
+LOG_HEADERS = [
+    "timestamp", "lead_id", "email", "event", "message_id", "detail",
+    "mailbox_id", "sender_email",
+]
 SAFE_VERIFICATION = {"safe"}
 MANUAL_REVIEW_VERIFICATION = {"catch_all", "unknown", "role_account", "inbox_full"}
 BLOCKED_VERIFICATION = {"invalid", "disabled", "disposable", "spamtrap"}
@@ -223,7 +237,7 @@ def deterministic_message_id(lead_id: str, stage: int, sender_email: str) -> str
     return f"<{digest}.{stage}@{domain}>"
 
 
-def build_message(row: dict[str, str], settings: Settings, stage: int) -> EmailMessage:
+def build_message(row: dict[str, str], mailbox: MailboxConfig, stage: int) -> EmailMessage:
     if stage == 1:
         subject, body = row.get("subject", "").strip(), row.get("body", "").strip()
     else:
@@ -232,11 +246,11 @@ def build_message(row: dict[str, str], settings: Settings, stage: int) -> EmailM
     if not subject or not body:
         raise ValueError("subject/body missing for requested stage")
     msg = EmailMessage()
-    msg["From"] = f"{settings.sender_name} <{settings.sender_email}>" if settings.sender_name else settings.sender_email
+    msg["From"] = f"{mailbox.sender_name} <{mailbox.sender_email}>" if mailbox.sender_name else mailbox.sender_email
     msg["To"] = row["email"]
     msg["Subject"] = subject
     msg["Date"] = format_datetime(utcnow())
-    msg["Message-ID"] = deterministic_message_id(row["lead_id"], stage, settings.sender_email)
+    msg["Message-ID"] = deterministic_message_id(row["lead_id"], stage, mailbox.sender_email)
     if stage == 2 and row.get("message_id"):
         msg["In-Reply-To"] = row["message_id"]
         msg["References"] = row["message_id"]
@@ -244,20 +258,20 @@ def build_message(row: dict[str, str], settings: Settings, stage: int) -> EmailM
     return msg
 
 
-def smtp_send(msg: EmailMessage, settings: Settings) -> None:
-    if not settings.smtp_host or not settings.mail_user or not settings.mail_password:
+def smtp_send(msg: EmailMessage, mailbox: MailboxConfig) -> None:
+    if not mailbox.smtp_host or not mailbox.mail_user or not mailbox.mail_password:
         raise RuntimeError("SMTP settings are incomplete")
     context = ssl.create_default_context()
-    if settings.smtp_port == 465:
-        with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, context=context, timeout=30) as smtp:
-            smtp.login(settings.mail_user, settings.mail_password)
+    if mailbox.smtp_port == 465:
+        with smtplib.SMTP_SSL(mailbox.smtp_host, mailbox.smtp_port, context=context, timeout=30) as smtp:
+            smtp.login(mailbox.mail_user, mailbox.mail_password)
             smtp.send_message(msg)
     else:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=30) as smtp:
+        with smtplib.SMTP(mailbox.smtp_host, mailbox.smtp_port, timeout=30) as smtp:
             smtp.ehlo()
             smtp.starttls(context=context)
             smtp.ehlo()
-            smtp.login(settings.mail_user, settings.mail_password)
+            smtp.login(mailbox.mail_user, mailbox.mail_password)
             smtp.send_message(msg)
 
 
@@ -367,34 +381,58 @@ def suppression_sets(rows: Iterable[dict[str, str]]) -> tuple[set[str], set[str]
     return emails, domains
 
 
-def add_suppression(service, settings: Settings, address: str, reason: str, evidence: str = "") -> None:
+def add_suppression(
+    service,
+    settings: Settings,
+    address: str,
+    reason: str,
+    evidence: str = "",
+    mailbox: MailboxConfig | None = None,
+) -> None:
+    source = "imap" if mailbox is None else f"imap:{mailbox.mailbox_id}"
     append_row(service, settings.spreadsheet_id, SUPPRESSION_SHEET, SUPPRESSION_HEADERS, {
         "email": normalize_address(address), "domain": "", "reason": reason,
-        "source": "imap", "created_at": iso(utcnow()), "evidence": evidence[:500],
+        "source": source, "created_at": iso(utcnow()), "evidence": evidence[:500],
     })
 
 
-def log_event(service, settings: Settings, row: dict[str, str], event: str, message_id: str = "", detail: str = "") -> None:
+def log_event(
+    service,
+    settings: Settings,
+    row: dict[str, str],
+    event: str,
+    message_id: str = "",
+    detail: str = "",
+    mailbox: MailboxConfig | None = None,
+) -> None:
     append_row(service, settings.spreadsheet_id, LOG_SHEET, LOG_HEADERS, {
         "timestamp": iso(utcnow()), "lead_id": row.get("lead_id", ""),
         "email": row.get("email", ""), "event": event, "message_id": message_id,
         "detail": detail[:500],
+        "mailbox_id": "" if mailbox is None else mailbox.mailbox_id,
+        "sender_email": "" if mailbox is None else mailbox.sender_email,
     })
 
 
-def sync_inbox(service, settings: Settings, headers: list[str], rows: list[dict[str, str]]) -> None:
+def sync_inbox_for_mailbox(
+    service,
+    settings: Settings,
+    headers: list[str],
+    rows: list[dict[str, str]],
+    mailbox: MailboxConfig,
+) -> None:
     if settings.mode != "live":
         return
-    if not settings.imap_host or not settings.mail_user or not settings.mail_password:
-        raise RuntimeError("IMAP settings are incomplete")
+    if not mailbox.imap_host or not mailbox.mail_user or not mailbox.mail_password:
+        raise RuntimeError(f"IMAP settings are incomplete for mailbox {mailbox.mailbox_id}")
     email_index = {normalize_address(row.get("email", "")): i for i, row in enumerate(rows) if row.get("email")}
     since = (utcnow() - timedelta(days=14)).strftime("%d-%b-%Y")
-    with imaplib.IMAP4_SSL(settings.imap_host, settings.imap_port, ssl_context=ssl.create_default_context()) as imap:
-        imap.login(settings.mail_user, settings.mail_password)
+    with imaplib.IMAP4_SSL(mailbox.imap_host, mailbox.imap_port, ssl_context=ssl.create_default_context()) as imap:
+        imap.login(mailbox.mail_user, mailbox.mail_password)
         imap.select("INBOX", readonly=True)
         status, data = imap.search(None, "SINCE", since)
         if status != "OK":
-            raise RuntimeError("IMAP search failed")
+            raise RuntimeError(f"IMAP search failed for mailbox {mailbox.mailbox_id}")
         for uid in data[0].split():
             status, payload = imap.fetch(uid, "(RFC822)")
             if status != "OK" or not payload or not isinstance(payload[0], tuple):
@@ -407,8 +445,8 @@ def sync_inbox(service, settings: Settings, headers: list[str], rows: list[dict[
                 if row.get("status", "").lower() != "bounced":
                     row.update(status="bounced", bounce_at=iso(utcnow()), last_error="delivery status notification")
                     update_row(service, settings.spreadsheet_id, QUEUE_SHEET, idx + 2, headers, row)
-                    add_suppression(service, settings, bounced, "bounce", msg.get("Subject", ""))
-                    log_event(service, settings, row, "bounced", detail=msg.get("Subject", ""))
+                    add_suppression(service, settings, bounced, "bounce", msg.get("Subject", ""), mailbox)
+                    log_event(service, settings, row, "bounced", detail=msg.get("Subject", ""), mailbox=mailbox)
                 continue
             if sender not in email_index:
                 continue
@@ -418,18 +456,73 @@ def sync_inbox(service, settings: Settings, headers: list[str], rows: list[dict[
                 if row.get("status", "").lower() != "opted_out":
                     row.update(status="opted_out", reply_at=iso(utcnow()))
                     update_row(service, settings.spreadsheet_id, QUEUE_SHEET, idx + 2, headers, row)
-                    add_suppression(service, settings, sender, "opt_out", msg.get("Subject", ""))
-                    log_event(service, settings, row, "opted_out", detail=msg.get("Subject", ""))
+                    add_suppression(service, settings, sender, "opt_out", msg.get("Subject", ""), mailbox)
+                    log_event(service, settings, row, "opted_out", detail=msg.get("Subject", ""), mailbox=mailbox)
                 continue
             if row.get("status", "").lower() in STOP_STATUSES:
                 continue
             row.update(status="replied", reply_at=iso(utcnow()))
             update_row(service, settings.spreadsheet_id, QUEUE_SHEET, idx + 2, headers, row)
-            log_event(service, settings, row, "replied", detail=msg.get("Subject", ""))
+            log_event(service, settings, row, "replied", detail=msg.get("Subject", ""), mailbox=mailbox)
+
+
+def sync_inboxes(
+    service,
+    settings: Settings,
+    headers: list[str],
+    rows: list[dict[str, str]],
+    mailboxes: Iterable[MailboxConfig],
+) -> None:
+    for mailbox in mailboxes:
+        sync_inbox_for_mailbox(service, settings, headers, rows, mailbox)
+
+
+def _defer_followup(
+    service,
+    settings: Settings,
+    headers: list[str],
+    row_number: int,
+    row: dict[str, str],
+    reason: str,
+) -> None:
+    if row.get("last_error", "") == reason:
+        return
+    row["last_error"] = reason[:500]
+    update_row(service, settings.spreadsheet_id, QUEUE_SHEET, row_number, headers, row)
+    log_event(service, settings, row, "followup_deferred", detail=reason)
+
+
+def resolve_followup_mailbox(
+    row: dict[str, str],
+    *,
+    configured: dict[str, MailboxConfig],
+    enabled: list[MailboxConfig],
+) -> tuple[MailboxConfig | None, str]:
+    mailbox_id = (row.get("sender_mailbox_id", "") or "").strip()
+    if not mailbox_id:
+        if len(enabled) == 1:
+            mailbox = enabled[0]
+        else:
+            return None, "follow-up requires sender_mailbox_id because multiple sending mailboxes are configured"
+    else:
+        mailbox = configured.get(mailbox_id)
+        if mailbox is None:
+            return None, f"assigned mailbox {mailbox_id} is no longer configured"
+        if not mailbox.enabled:
+            return None, f"assigned mailbox {mailbox_id} is disabled; follow-up remains paused"
+
+    stored_sender = normalize_address(row.get("sender_email", ""))
+    if stored_sender and stored_sender != normalize_address(mailbox.sender_email):
+        return None, "assigned mailbox sender_email changed; manual reconciliation required before follow-up"
+    return mailbox, ""
 
 
 def process() -> int:
     settings = Settings.from_env()
+    mailboxes = load_mailboxes_from_env(mode=settings.mode, default_daily_limit=settings.daily_send_limit)
+    active_mailboxes = enabled_mailboxes(mailboxes)
+    configured_mailboxes = mailbox_map(mailboxes)
+
     service = build_sheets_service()
     queue_headers, rows = rows_from_values(get_values(service, settings.spreadsheet_id, QUEUE_SHEET))
     ensure_expected_headers(queue_headers, QUEUE_HEADERS, QUEUE_SHEET)
@@ -438,7 +531,7 @@ def process() -> int:
     log_headers, _ = rows_from_values(get_values(service, settings.spreadsheet_id, LOG_SHEET))
     ensure_expected_headers(log_headers, LOG_HEADERS, LOG_SHEET)
 
-    sync_inbox(service, settings, queue_headers, rows)
+    sync_inboxes(service, settings, queue_headers, rows, active_mailboxes)
     if settings.mode == "live":
         queue_headers, rows = rows_from_values(get_values(service, settings.spreadsheet_id, QUEUE_SHEET))
         _, suppression_rows = rows_from_values(get_values(service, settings.spreadsheet_id, SUPPRESSION_SHEET))
@@ -446,6 +539,10 @@ def process() -> int:
     suppressed_emails, suppressed_domains = suppression_sets(suppression_rows)
     now = utcnow()
     send_count = count_sends_today(rows, now, settings.timezone_name)
+    mailbox_counts = count_mailbox_sends_today(
+        rows, now=now, timezone_name=settings.timezone_name, parse_dt=parse_dt
+    )
+    mailbox_last_sent = last_mailbox_send_times(rows, parse_dt=parse_dt)
     sends_this_run = 0
     if settings.mode == "live" and not within_send_window(now, settings.timezone_name, settings.send_window_start, settings.send_window_end):
         print("Outside configured send window; inbox sync completed, no outbound mail sent.")
@@ -481,30 +578,74 @@ def process() -> int:
         if send_count >= settings.daily_send_limit or sends_this_run >= settings.max_sends_per_run:
             break
 
+        if action == "initial":
+            mailbox = choose_initial_mailbox(
+                active_mailboxes,
+                sent_today=mailbox_counts,
+                last_sent_at=mailbox_last_sent,
+                now=utcnow(),
+                lead_id=row.get("lead_id", ""),
+            )
+            if mailbox is None:
+                print(f"{row.get('lead_id')}: no sending mailbox currently has available capacity")
+                continue
+        else:
+            mailbox, reason = resolve_followup_mailbox(
+                row,
+                configured=configured_mailboxes,
+                enabled=active_mailboxes,
+            )
+            if mailbox is None:
+                _defer_followup(service, settings, queue_headers, idx + 2, row, reason)
+                continue
+            if not mailbox_is_available(
+                mailbox,
+                sent_today=mailbox_counts.get(mailbox.mailbox_id, 0),
+                last_sent_at=mailbox_last_sent.get(mailbox.mailbox_id),
+                now=utcnow(),
+            ):
+                continue
+
         stage = 1 if action == "initial" else 2
-        row.update(status="sending", stage=str(stage), last_error="")
+        row.update(
+            status="sending",
+            stage=str(stage),
+            last_error="",
+            sender_mailbox_id=mailbox.mailbox_id,
+            sender_email=mailbox.sender_email,
+        )
         update_row(service, settings.spreadsheet_id, QUEUE_SHEET, idx + 2, queue_headers, row)
         try:
-            msg = build_message(row, settings, stage)
-            smtp_send(msg, settings)
+            msg = build_message(row, mailbox, stage)
+            smtp_send(msg, mailbox)
+            sent_time = utcnow()
             message_id = str(msg["Message-ID"])
             if stage == 1:
-                row.update(status="sent", sent_at=iso(utcnow()), message_id=message_id)
+                row.update(status="sent", sent_at=iso(sent_time), message_id=message_id)
                 if row.get("followup_body", "").strip():
                     delay = int(row.get("followup_delay_days", "3") or "3")
-                    row["next_send_at"] = iso(utcnow() + timedelta(days=max(1, delay)))
+                    row["next_send_at"] = iso(sent_time + timedelta(days=max(1, delay)))
             else:
-                row.update(status="followup_sent", followup_sent_at=iso(utcnow()), followup_message_id=message_id, next_send_at="")
+                row.update(status="followup_sent", followup_sent_at=iso(sent_time), followup_message_id=message_id, next_send_at="")
             update_row(service, settings.spreadsheet_id, QUEUE_SHEET, idx + 2, queue_headers, row)
-            log_event(service, settings, row, row["status"], message_id=message_id)
+            log_event(service, settings, row, row["status"], message_id=message_id, mailbox=mailbox)
             send_count += 1
             sends_this_run += 1
+            mailbox_counts[mailbox.mailbox_id] = mailbox_counts.get(mailbox.mailbox_id, 0) + 1
+            mailbox_last_sent[mailbox.mailbox_id] = sent_time
         except Exception as exc:
             row.update(status="error", last_error=f"{type(exc).__name__}: {exc}"[:500])
             update_row(service, settings.spreadsheet_id, QUEUE_SHEET, idx + 2, queue_headers, row)
-            log_event(service, settings, row, "send_error", detail=row["last_error"])
+            log_event(service, settings, row, "send_error", detail=row["last_error"], mailbox=mailbox)
 
-    print(f"mode={settings.mode} rows={len(rows)} sends_this_run={sends_this_run} sends_today={send_count}")
+    mailbox_summary = ",".join(
+        f"{mailbox.mailbox_id}:{mailbox_counts.get(mailbox.mailbox_id, 0)}/{mailbox.daily_limit}"
+        for mailbox in active_mailboxes
+    )
+    print(
+        f"mode={settings.mode} rows={len(rows)} sends_this_run={sends_this_run} "
+        f"sends_today={send_count} mailboxes={mailbox_summary}"
+    )
     return 0
 
 

@@ -5,7 +5,27 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
+import outreach_mailboxes as m
 import outreach_sender as o
+
+
+def mailbox(mailbox_id="one", sender_email="one@example.com", enabled=True):
+    return m.MailboxConfig(
+        mailbox_id=mailbox_id,
+        enabled=enabled,
+        smtp_host="mail.example.com",
+        smtp_port=587,
+        imap_host="mail.example.com",
+        imap_port=993,
+        mail_user=sender_email,
+        mail_password="secret",
+        sender_name="Andrew",
+        sender_email=sender_email,
+        daily_limit=20,
+        min_wait_minutes=1,
+        dkim_selector="x",
+        required_spf_token="include:spf.example.com",
+    )
 
 
 class OutreachSenderTests(unittest.TestCase):
@@ -54,6 +74,47 @@ class OutreachSenderTests(unittest.TestCase):
         self.assertNotEqual(first, follow)
         self.assertTrue(first.endswith("@example.com>"))
 
+    def test_build_message_uses_selected_mailbox_identity(self):
+        selected = mailbox("sales-1", "sales1@example.com")
+        row = {"lead_id": "lead-1", "email": "lead@example.org", "subject": "Subject", "body": "Body"}
+        msg = o.build_message(row, selected, 1)
+        self.assertEqual(msg["From"], "Andrew <sales1@example.com>")
+        self.assertEqual(msg["To"], "lead@example.org")
+        self.assertTrue(str(msg["Message-ID"]).endswith("@example.com>"))
+
+    def test_followup_stays_on_assigned_mailbox(self):
+        one = mailbox("one", "one@example.com")
+        two = mailbox("two", "two@example.com")
+        row = {"sender_mailbox_id": "two", "sender_email": "two@example.com"}
+        resolved, reason = o.resolve_followup_mailbox(
+            row,
+            configured={"one": one, "two": two},
+            enabled=[one, two],
+        )
+        self.assertEqual(reason, "")
+        self.assertEqual(resolved.mailbox_id, "two")
+
+    def test_followup_without_assignment_fails_closed_with_multiple_mailboxes(self):
+        one = mailbox("one", "one@example.com")
+        two = mailbox("two", "two@example.com")
+        resolved, reason = o.resolve_followup_mailbox(
+            {},
+            configured={"one": one, "two": two},
+            enabled=[one, two],
+        )
+        self.assertIsNone(resolved)
+        self.assertIn("requires sender_mailbox_id", reason)
+
+    def test_followup_detects_sender_identity_change(self):
+        one = mailbox("one", "new@example.com")
+        resolved, reason = o.resolve_followup_mailbox(
+            {"sender_mailbox_id": "one", "sender_email": "old@example.com"},
+            configured={"one": one},
+            enabled=[one],
+        )
+        self.assertIsNone(resolved)
+        self.assertIn("sender_email changed", reason)
+
     def test_fresh_verification(self):
         now = datetime(2026, 9, 4, 12, 0, tzinfo=timezone.utc)
         fresh = {"verification_status": "safe", "verification_checked_at": "2026-09-01T12:00:00Z"}
@@ -83,6 +144,7 @@ class OutreachSenderTests(unittest.TestCase):
         self.assertEqual(o.column_name(1), "A")
         self.assertEqual(o.column_name(26), "Z")
         self.assertEqual(o.column_name(27), "AA")
+        self.assertEqual(o.column_name(28), "AB")
 
 
 if __name__ == "__main__":
