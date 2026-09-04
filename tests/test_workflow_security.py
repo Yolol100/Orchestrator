@@ -123,9 +123,22 @@ class WorkflowSecurityTests(unittest.TestCase):
         self.assertIn("run: python3 scripts/outreach_drafts.py", draft_writer)
         self.assertNotIn("REOON_API_KEY", text)
 
-    def test_outreach_job_remains_disabled_without_explicit_flag(self):
+    def test_project_mailbox_defaults_are_non_secret_and_consistent(self):
+        for filename in ("outreach-smtp.yml", "outreach-drafts.yml"):
+            text = (WORKFLOWS / filename).read_text(encoding="utf-8")
+            self.assertIn("mail.andrewbaeten.nl", text)
+            self.assertIn("info@andrewbaeten.nl", text)
+            self.assertIn("include:spf.mijn.host", text)
+            self.assertIn("vars.OUTREACH_DKIM_SELECTOR || 'x'", text)
+            self.assertIn("OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}", text)
+
+    def test_scheduled_outreach_stays_disabled_but_manual_dispatch_is_allowed(self):
         text = (WORKFLOWS / "outreach-smtp.yml").read_text(encoding="utf-8")
-        self.assertIn("if: vars.OUTREACH_ENABLED == 'true'", text)
+        self.assertIn("if: github.event_name == 'workflow_dispatch' || vars.OUTREACH_ENABLED == 'true'", text)
+        self.assertIn("type: choice", text)
+        self.assertIn("- validate", text)
+        self.assertIn("- live", text)
+        self.assertIn("default: validate", text)
 
 
 if __name__ == "__main__":
