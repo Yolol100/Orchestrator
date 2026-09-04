@@ -1,4 +1,4 @@
-name: Controlled SMTP Outreach
+name: Controlled mijn.host SMTP Outreach
 
 on:
   workflow_dispatch:
@@ -58,7 +58,6 @@ jobs:
           OUTREACH_SEND_WINDOW_END: ${{ vars.OUTREACH_SEND_WINDOW_END }}
           OUTREACH_DAILY_LIMIT: ${{ steps.policy.outputs.effective_daily_limit }}
           OUTREACH_MAX_SENDS_PER_RUN: ${{ steps.policy.outputs.effective_max_sends_per_run }}
-          OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
           OUTREACH_MAILBOX_ID: ${{ vars.OUTREACH_MAILBOX_ID }}
           OUTREACH_MAILBOX_DAILY_LIMIT: ${{ vars.OUTREACH_MAILBOX_DAILY_LIMIT }}
           OUTREACH_MAILBOX_MIN_WAIT_MINUTES: ${{ vars.OUTREACH_MAILBOX_MIN_WAIT_MINUTES }}
@@ -89,17 +88,7 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
         run: python3 scripts/outreach_compliance_preflight.py
 
-      - name: Verify pending outreach emails
-        env:
-          OUTREACH_MODE: ${{ steps.policy.outputs.effective_mode }}
-          OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
-          OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
-          OUTREACH_MAX_VERIFICATIONS_PER_RUN: ${{ vars.OUTREACH_MAX_VERIFICATIONS_PER_RUN }}
-          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
-          REOON_API_KEY: ${{ secrets.REOON_API_KEY }}
-        run: python3 scripts/outreach_verifier.py
-
-      - name: Process approved outreach queue
+      - name: Process approved outreach queue through mijn.host SMTP
         env:
           OUTREACH_MODE: ${{ steps.policy.outputs.effective_mode }}
           OUTREACH_SPREADSHEET_ID: ${{ vars.OUTREACH_SPREADSHEET_ID }}
@@ -113,7 +102,6 @@ jobs:
           OUTREACH_RANDOM_JITTER_MINUTES: ${{ vars.OUTREACH_RANDOM_JITTER_MINUTES }}
           OUTREACH_REPLY_LOOKBACK_DAYS: ${{ vars.OUTREACH_REPLY_LOOKBACK_DAYS }}
           OUTREACH_CAPTURE_OTHER_MAIL: ${{ vars.OUTREACH_CAPTURE_OTHER_MAIL }}
-          OUTREACH_VERIFICATION_MAX_AGE_DAYS: ${{ vars.OUTREACH_VERIFICATION_MAX_AGE_DAYS }}
           OUTREACH_MAILBOX_ID: ${{ vars.OUTREACH_MAILBOX_ID }}
           OUTREACH_MAILBOX_DAILY_LIMIT: ${{ vars.OUTREACH_MAILBOX_DAILY_LIMIT }}
           OUTREACH_MAILBOX_MIN_WAIT_MINUTES: ${{ vars.OUTREACH_MAILBOX_MIN_WAIT_MINUTES }}
@@ -129,7 +117,7 @@ jobs:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           OUTREACH_MAIL_PASSWORD: ${{ secrets.OUTREACH_MAIL_PASSWORD }}
           OUTREACH_MAILBOXES_JSON: ${{ secrets.OUTREACH_MAILBOXES_JSON }}
-        run: python3 scripts/outreach_campaign_runtime.py
+        run: python3 scripts/outreach_direct_smtp_runtime.py
 
       - name: Summarize outreach analytics
         if: always()
