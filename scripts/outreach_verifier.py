@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 import os
 import time
-from datetime import datetime
 from typing import Callable, Iterable
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -77,7 +76,7 @@ def reoon_verify_bulk(
     if not api_key:
         raise RuntimeError("REOON_API_KEY is required in verify/live mode")
 
-    task_name = "webactueel-" + datetime.utcnow().strftime("%Y%m%d%H%M")
+    task_name = "webactueel-" + utcnow().strftime("%Y%m%d%H%M")
     body = json.dumps({"name": task_name, "emails": emails, "key": api_key}).encode("utf-8")
     request = Request(
         BULK_CREATE_URL,
