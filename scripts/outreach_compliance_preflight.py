@@ -5,7 +5,7 @@ EEA_COUNTRIES = {
     "nederland","netherlands","belgie","belgium","duitsland","germany","frankrijk","france","spanje","spain","italie","italy","oostenrijk","austria","zweden","sweden","denemarken","denmark","finland","ierland","ireland","portugal","polen","poland","noorwegen","norway","ijsland","iceland","liechtenstein",
 }
 ALLOWED_BASES = {"consent", "existing_customer_similar", "other_verified_basis"}
-LIVE_CANDIDATE_STATUSES = {"approved", "verification_pending"}
+LIVE_CANDIDATE_STATUSES = {"approved"}
 
 
 def compliance_errors(row: dict[str, str]) -> list[str]:
