@@ -129,3 +129,7 @@ I am **Andrew Baeten**, a Senior WordPress Developer & Web Designer with 10+ yea
 ## License
 
 This repository currently has no open-source license. Reuse, distribution or derivative works are not permitted without explicit permission from the copyright holder.
+
+## Read-only run evidence classification
+
+Run `python3 scripts/classify_run_evidence.py evidence.json` against saved GitHub API readbacks. Input requires `expected` (`head_sha`, `workflow_path`, non-empty `job_names`, optional `artifact_names`), `run`, the complete paginated `jobs` object, and `artifacts` when required. Jobs must match the run ID, exact head and run attempt. A failure without runner/step evidence is blocked with unknown cause, not a failed code test. Missing, stale, skipped or expired evidence cannot pass. `execution_verified` covers execution metadata only; inspect artifact contents and obtain domain acceptance separately. The classifier performs no network calls or writes.
