@@ -56,7 +56,7 @@ Actions secret:
 
 - `WEB_ACTUEEL_APP_PRIVATE_KEY`
 
-The design splits least-privilege tokens by transport type: ordinary request-file adapters receive only `contents: write`; the guarded WordPress request-PR adapter receives `contents: write` plus `pull_requests: write` only on `wordpressconnector`. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository.
+The seven registered request-file adapters receive only `contents: write`. No current adapter requires a request-PR token. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository. Live WordPress work uses the connected WP Agent and authenticated WordPress REST connector; this repository does not proxy REST credentials or site writes.
 
 ## Starting a request
 
@@ -81,7 +81,7 @@ Use this Orchestrator when remote GitHub runs, wait/resume behaviour, dependency
 - `invoked` is never the same as `accepted`.
 - A dependency is satisfied only when the request contains a controller-issued `dependency_receipt`.
 - `elementorjson` uses only its registered correlated request-file route through `requests/runtime.json`; this is not a free generic dispatch route and acceptance requires exact request/result correlation.
-- `wordpressconnector` intentionally uses a request PR on a temporary branch; the Orchestrator does not convert it into a normal push route, and a WordPress runtime node requires `approval_before_write` or stricter.
+- `wordpressconnector` is source/CI infrastructure for the direct authenticated REST connector. Its retired `wordpress-request.yml` request-PR route is not registered and requests for it fail before token creation. The controller must verify site health, installed version, capabilities and applicable write/update gates through WP Agent.
 - `transcriberen` uses its own append-only `runtime-requests` queue; the dispatcher does not create a new runtime branch for it.
 - Customer/project truth does not belong on `main`. Temporary runtime branches are removed only after readback and acceptance.
 - A green GitHub Action proves transport execution, not domain correctness.
@@ -108,7 +108,7 @@ After controller closure, run:
 python3 scripts/cleanup_runtime_branches.py transport-plan.json --confirm-workflow-id <WF-ID>
 ```
 
-Ordinary request branches are removed only when the current SHA still exactly matches the transport receipt. A guarded WordPress request PR can legitimately move after validated result writeback; for that case, provide a separate controller-verified JSON file with `--verified-heads verified-heads.json`, for example:
+Ordinary request branches are removed only when the current SHA still exactly matches the transport receipt. Historical guarded request PRs can legitimately have moved after validated result writeback; when cleaning those existing receipts, provide a separate controller-verified JSON file with `--verified-heads verified-heads.json`, for example:
 
 ```json
 {"Yolol100/wordpressconnector:runtime/...":"<current-40-hex-sha>"}

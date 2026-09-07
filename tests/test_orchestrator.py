@@ -146,53 +146,24 @@ class OrchestratorTests(unittest.TestCase):
             self.assertEqual(seen['branch'], 'runtime-requests')
             self.assertEqual(seen['path'], 'requests/queue/caption-123.json')
 
-    def test_wordpressconnector_uses_guarded_pull_request_transport(self):
-        wp = self.make_node('wordpressconnector', {
-            'version': 1,
-            'request_id': 'wpconn-123',
-            'action': 'connector.discover',
-            'dry_run': True,
-            'confirm': False,
-            'payload': {},
-        })
+    def test_retired_wordpress_route_fails_before_token_scope(self):
+        # Even a request with the current registry fingerprint cannot revive
+        # the deleted WordPress workflow or request PR transport.
+        wp = self.make_node('seochecker', {'request_id': 'wpconn-123'})
+        wp.update(id='wordpressconnector', repository='Yolol100/wordpressconnector',
+                  workflow='.github/workflows/wordpress-request.yml')
         request = self.make_request([wp], ['wordpressconnector'])
         with tempfile.TemporaryDirectory() as raw:
-            td = Path(raw)
-            request_path = td / 'request.json'
-            request_path.write_text(json.dumps(request), encoding='utf-8')
-            output_env = td / 'github-output.txt'
+            path = Path(raw) / 'request.json'
+            output = Path(raw) / 'github-output.txt'
+            path.write_text(json.dumps(request), encoding='utf-8')
             proc = subprocess.run([
-                'python3', str(ROOT / 'scripts' / 'validate_request.py'), str(request_path),
-                '--github-output', str(output_env),
+                'python3', str(ROOT / 'scripts/validate_request.py'), str(path),
+                '--github-output', str(output),
             ], capture_output=True, text=True)
-            self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
-            outputs = output_env.read_text(encoding='utf-8')
-            self.assertIn('has_pr_nodes=true', outputs)
-            self.assertIn('wordpressconnector', outputs)
-
-            module = load_dispatch_module()
-            seen = {}
-            def pr_request(repo, base, branch, path, payload, message, title, body):
-                seen.update(repo=repo, base=base, branch=branch, path=path, title=title)
-                return 'invoked', 'a' * 40, 42, 'https://github.com/Yolol100/wordpressconnector/pull/42'
-            module.ensure_pull_request_request = pr_request
-            old_argv = sys.argv
-            try:
-                sys.argv = ['dispatch_nodes.py', str(request_path), str(td / 'transport.json')]
-                self.assertEqual(module.main(), 0)
-            finally:
-                sys.argv = old_argv
-            transport = json.loads((td / 'transport.json').read_text(encoding='utf-8'))
-            item = transport['nodes'][0]
-            self.assertEqual(item['mode'], 'pull_request')
-            self.assertEqual(item['pull_request']['number'], 42)
-            self.assertEqual(item['head_sha'], 'a' * 40)
-            self.assertTrue(seen['branch'].startswith('runtime/'))
-            self.assertEqual(seen['path'], 'requests/wpconn-123.json')
-            subprocess.run([
-                'python3', str(ROOT / 'scripts' / 'validate_transport_plan.py'),
-                str(request_path), str(td / 'transport.json')
-            ], check=True, capture_output=True, text=True)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn('unknown_repo:wordpressconnector', proc.stdout + proc.stderr)
+            self.assertFalse(output.exists(), 'must fail before emitting token scope')
 
     def test_exact_duplicate_is_ignored(self):
         module = load_dispatch_module()
