@@ -10,7 +10,7 @@
     {"id":"programmeren","repository":"Yolol100/programmeren","owner_skill":"wordpressqualityarchitect","role":"generic-wordpress-plugin-audit","status":"active"},
     {"id":"wordpressconnector","repository":"Yolol100/wordpressconnector","owner_skill":"wordpressqualityarchitect","consumer_skills":["seo","design","elementor","wordpressqualityarchitect"],"role":"canonical-live-wordpress-bridge","status":"active"},
     {"id":"transcriberen","repository":"Yolol100/transcriberen","owner_skill":"webactueel-workflow","owner_mode":"transcribeer","role":"caption-acquisition-runtime","status":"active"},
-    {"id":"outreach-runtime","repository":"Yolol100/outreach-runtime","owner_skill":"leads","consumer_skills":["leads"],"role":"outreach-transport-runtime","status":"active","activation_state":"code-active-live-pending-runtime-proof"}
+    {"id":"leadscanner","repository":"Yolol100/Leadscanner","owner_skill":"leads","consumer_skills":["leads"],"role":"leads-domain-runtime","status":"active"}
   ],
   "consolidations": [
     {"source":"Yolol100/Checklist","target":"Yolol100/Designchecker","status":"migration","source_runtime_status":"legacy-active-until-evidence-parity","remove_after":["formal-evidence parity is tested","orchestrator routing is switched","Website QA accepts correlated replacement evidence"]},
@@ -24,7 +24,6 @@
     {"repository":"Yolol100/Woocommerce-return-requests","reason":"placeholder repository without an active implementation"}
   ],
   "excluded_repositories": [
-    {"repository":"Yolol100/Leadscanner","reason":"domain runtime retained outside the simplification core; owns Leads discovery, qualification and prepare"},
     {"repository":"Yolol100/vacature-engine","reason":"explicitly excluded from this simplification"}
   ]
 }
