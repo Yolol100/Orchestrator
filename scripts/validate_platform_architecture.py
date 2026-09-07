@@ -13,15 +13,16 @@ EXPECTED_CORE = {
     "Yolol100/programmeren",
     "Yolol100/wordpressconnector",
     "Yolol100/transcriberen",
-    "Yolol100/outreach-runtime",
+    "Yolol100/Leadscanner",
 }
-EXPECTED_EXCLUDED = {"Yolol100/Leadscanner", "Yolol100/vacature-engine"}
+EXPECTED_EXCLUDED = {"Yolol100/vacature-engine"}
 FORBIDDEN_ACTIVE = {
     "Yolol100/Checklist",
     "Yolol100/Elementorconnector",
     "Yolol100/Export-acf-to-csv",
     "Yolol100/elementor-design-kit-generator",
     "Yolol100/Woocommerce-return-requests",
+    "Yolol100/outreach-runtime",
 }
 ALLOWED_CONSOLIDATION_STATUS = {"migration", "duplicate-deprecation"}
 
@@ -44,7 +45,7 @@ def validate(data: object) -> list[str]:
     if set(core_repos) != EXPECTED_CORE:
         errors.append("core repository set differs from the eight-repository platform contract")
     if set(core_repos) & FORBIDDEN_ACTIVE:
-        errors.append("consolidation/deprecated/archive repository is active core")
+        errors.append("consolidation/deprecated/archive/deleted repository is active core")
     for item in core:
         if not isinstance(item, dict):
             errors.append("core entry must be an object")
@@ -55,11 +56,9 @@ def validate(data: object) -> list[str]:
         if item.get("status") != "active":
             errors.append(f"core repository is not active: {item.get('repository')}")
 
-    outreach = next((item for item in core if isinstance(item, dict) and item.get("repository") == "Yolol100/outreach-runtime"), None)
-    if not outreach or outreach.get("owner_skill") != "leads" or outreach.get("role") != "outreach-transport-runtime":
-        errors.append("outreach-runtime must be leads-owned outreach-transport-runtime")
-    if outreach and outreach.get("activation_state") not in {"code-active-live-pending-runtime-proof", "live-proven"}:
-        errors.append("outreach-runtime activation_state is invalid")
+    leadscanner = next((item for item in core if isinstance(item, dict) and item.get("repository") == "Yolol100/Leadscanner"), None)
+    if not leadscanner or leadscanner.get("owner_skill") != "leads" or leadscanner.get("role") != "leads-domain-runtime":
+        errors.append("Leadscanner must be leads-owned leads-domain-runtime")
 
     consolidations = data.get("consolidations")
     if not isinstance(consolidations, list):
@@ -90,7 +89,7 @@ def validate(data: object) -> list[str]:
         excluded = []
     excluded_repos = {item.get("repository") for item in excluded if isinstance(item, dict)}
     if excluded_repos != EXPECTED_EXCLUDED:
-        errors.append("excluded repository set must remain Leadscanner plus vacature-engine")
+        errors.append("excluded repository set must remain vacature-engine only")
     if excluded_repos & set(core_repos):
         errors.append("excluded repository may not be active core")
 
@@ -119,7 +118,7 @@ def main() -> int:
         for error in errors:
             print(f"ERROR {error}")
         return 1
-    print("PLATFORM ARCHITECTURE: PASS (8 core repositories; outreach-runtime registered; excluded repositories unchanged)")
+    print("PLATFORM ARCHITECTURE: PASS (8 core repositories; Leadscanner is the Leads runtime; deleted outreach-runtime forbidden)")
     return 0
 
 
