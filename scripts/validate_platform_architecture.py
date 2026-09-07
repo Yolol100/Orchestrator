@@ -13,6 +13,7 @@ EXPECTED_CORE = {
     "Yolol100/programmeren",
     "Yolol100/wordpressconnector",
     "Yolol100/transcriberen",
+    "Yolol100/outreach-runtime",
 }
 EXPECTED_EXCLUDED = {"Yolol100/Leadscanner", "Yolol100/vacature-engine"}
 FORBIDDEN_ACTIVE = {
@@ -41,7 +42,7 @@ def validate(data: object) -> list[str]:
     if len(core_repos) != len(set(core_repos)):
         errors.append("core repositories must be unique")
     if set(core_repos) != EXPECTED_CORE:
-        errors.append("core repository set differs from the seven-repository platform contract")
+        errors.append("core repository set differs from the eight-repository platform contract")
     if set(core_repos) & FORBIDDEN_ACTIVE:
         errors.append("consolidation/deprecated/archive repository is active core")
     for item in core:
@@ -53,6 +54,12 @@ def validate(data: object) -> list[str]:
                 errors.append(f"core entry missing {field}: {item!r}")
         if item.get("status") != "active":
             errors.append(f"core repository is not active: {item.get('repository')}")
+
+    outreach = next((item for item in core if isinstance(item, dict) and item.get("repository") == "Yolol100/outreach-runtime"), None)
+    if not outreach or outreach.get("owner_skill") != "leads" or outreach.get("role") != "outreach-transport-runtime":
+        errors.append("outreach-runtime must be leads-owned outreach-transport-runtime")
+    if outreach and outreach.get("activation_state") not in {"code-active-live-pending-runtime-proof", "live-proven"}:
+        errors.append("outreach-runtime activation_state is invalid")
 
     consolidations = data.get("consolidations")
     if not isinstance(consolidations, list):
@@ -112,7 +119,7 @@ def main() -> int:
         for error in errors:
             print(f"ERROR {error}")
         return 1
-    print("PLATFORM ARCHITECTURE: PASS (7 core repositories; excluded repositories unchanged)")
+    print("PLATFORM ARCHITECTURE: PASS (8 core repositories; outreach-runtime registered; excluded repositories unchanged)")
     return 0
 
 
