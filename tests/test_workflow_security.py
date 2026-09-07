@@ -34,16 +34,17 @@ class WorkflowSecurityTests(unittest.TestCase):
             self.assertIn("\npermissions:\n", text, f"{path.name}: missing explicit permissions")
             self.assertNotIn("write-all", text, f"{path.name}: write-all is forbidden")
 
-    def test_legacy_leads_domain_routes_are_manual_only_disabled_stubs(self):
+    def test_legacy_leads_domain_workflows_are_absent(self):
         for filename in LEGACY_LEADS_WORKFLOWS:
-            text = (WORKFLOWS / filename).read_text(encoding="utf-8")
-            self.assertIn("workflow_dispatch:", text, filename)
-            self.assertNotIn("schedule:", text, filename)
-            self.assertIn("LEGACY_DOMAIN_ROUTE=disabled", text, filename)
-            self.assertIn("Yolol100/Leadscanner", text, filename)
-            self.assertIn("contents: read", text, filename)
+            self.assertFalse((WORKFLOWS / filename).exists(), filename)
 
-    def test_disabled_legacy_leads_routes_receive_no_runtime_secrets(self):
+    def test_orchestrator_contains_no_outreach_domain_scripts(self):
+        scripts = ROOT / "scripts"
+        names = {path.name for path in scripts.glob("*.py")}
+        self.assertFalse(any(name.startswith("outreach_") for name in names))
+        self.assertFalse(any(name.startswith("prospect_discovery") for name in names))
+
+    def test_orchestrator_workflows_receive_no_leads_runtime_secrets(self):
         forbidden = (
             "GOOGLE_SERVICE_ACCOUNT_JSON",
             "OUTREACH_MAIL_PASSWORD",
@@ -51,23 +52,10 @@ class WorkflowSecurityTests(unittest.TestCase):
             "OUTREACH_SEED_INBOXES_JSON",
             "REOON_API_KEY",
         )
-        for filename in LEGACY_LEADS_WORKFLOWS:
-            text = (WORKFLOWS / filename).read_text(encoding="utf-8")
+        for path in sorted(WORKFLOWS.glob("*.yml")):
+            text = path.read_text(encoding="utf-8")
             for name in forbidden:
-                self.assertNotIn(name, text, f"{filename}: disabled route must not receive {name}")
-
-    def test_disabled_legacy_leads_routes_cannot_execute_domain_scripts(self):
-        forbidden = (
-            "scripts/outreach_",
-            "scripts/prospect_",
-            "smtp",
-            "imap",
-        )
-        for filename in LEGACY_LEADS_WORKFLOWS:
-            text = (WORKFLOWS / filename).read_text(encoding="utf-8").lower()
-            self.assertNotIn("scripts/outreach_", text, filename)
-            self.assertNotIn("scripts/prospect_", text, filename)
-            self.assertNotIn("secrets.", text, filename)
+                self.assertNotIn(name, text, f"{path.name}: Orchestrator must not receive {name}")
 
 
 if __name__ == "__main__":
