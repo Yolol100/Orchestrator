@@ -1,12 +1,13 @@
-# Outreach runtime boundary
+# Leads runtime boundary
 
-Outreach domain execution no longer belongs in this transport-only Orchestrator.
+Outreach domain execution does not belong in this transport-only Orchestrator.
 
 - Process controller: `webactueel-workflow`
 - Domain owner: `leads`
-- Prospect discovery/qualification/prepare: `Yolol100/Leadscanner`
-- SMTP/IMAP/suppression/readback runtime: `Yolol100/outreach-runtime`
+- Leads execution runtime: `Yolol100/Leadscanner`
+- Leadscanner owns prospect discovery, qualification, contact enrichment, zero-touch prepare, sender readiness, SMTP/IMAP delivery, reply/opt-out/bounce readback, suppression and transport logging.
+- `Yolol100/outreach-runtime` was retired and deleted on 2026-09-07. It must not be referenced as an active dependency or platform repository.
 
 The Orchestrator may transport a remote request only when real wait/resume, correlated multi-run state or managed-risk transport is required. It must not contain outreach policy, SMTP/IMAP implementations, prospect discovery or campaign logic.
 
-The old outreach files were removed on the migration branch because `Leadscanner` remains the rollback/live fallback until the new runtime completes its own validate/readiness/live parity gates.
+This keeps one Leads runtime while preserving the controller boundary: `webactueel-workflow -> leads -> Leadscanner`.
