@@ -1,29 +1,159 @@
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "controller": "webactueel-workflow",
-  "selection_rule": "Use the smallest active capability that adds a required evidence or execution class. Product repositories are targets, not workflow controllers.",
+  "selection_rule": "Every active capability repository has exactly one owner_skill. A different Skill may call that repository only when it is explicitly listed in consumer_skills; consuming evidence never transfers policy ownership. If no consumer relationship exists, hand off to the repository owner instead of calling the repository directly.",
+  "cross_skill_rule": "Cross-skill repository use is deny-by-default and must be explicit, minimal and evidence-scoped. Repositories never call or absorb another domain repository merely because their tools overlap.",
   "core_repositories": [
-    {"id":"orchestrator","repository":"Yolol100/Orchestrator","owner_skill":"webactueel-workflow","role":"github-transport-only","status":"active"},
-    {"id":"designchecker","repository":"Yolol100/Designchecker","owner_skill":"design","consumer_skills":["design","website-qa-checklist"],"role":"shared-browser-and-visual-evidence","status":"active"},
-    {"id":"seochecker","repository":"Yolol100/seochecker","owner_skill":"seo","role":"technical-seo-evidence","status":"active"},
-    {"id":"elementorjson","repository":"Yolol100/elementorjson","owner_skill":"elementor","role":"elementor-controlled-runtime","status":"active"},
-    {"id":"programmeren","repository":"Yolol100/programmeren","owner_skill":"wordpressqualityarchitect","role":"generic-wordpress-plugin-audit","status":"active"},
-    {"id":"wordpressconnector","repository":"Yolol100/wordpressconnector","owner_skill":"wordpressqualityarchitect","consumer_skills":["seo","design","elementor","wordpressqualityarchitect"],"role":"canonical-live-wordpress-bridge","status":"active"},
-    {"id":"transcriberen","repository":"Yolol100/transcriberen","owner_skill":"webactueel-workflow","owner_mode":"transcribeer","role":"caption-acquisition-runtime","status":"active"},
-    {"id":"leadscanner","repository":"Yolol100/Leadscanner","owner_skill":"leads","consumer_skills":["leads"],"role":"leads-domain-runtime","status":"active"}
+    {
+      "id": "orchestrator",
+      "repository": "Yolol100/Orchestrator",
+      "owner_skill": "webactueel-workflow",
+      "consumer_skills": [],
+      "role": "github-transport-only",
+      "status": "active",
+      "dispatcher_registration": false,
+      "call_when": "Remote GitHub work needs wait/resume, dependency waves, persistent transport state or correlated multi-run evidence.",
+      "do_not_call_when": "A native app, browser, local/Codex runtime or one specialist repository can return the required evidence directly."
+    },
+    {
+      "id": "designchecker",
+      "repository": "Yolol100/Designchecker",
+      "owner_skill": "design",
+      "consumer_skills": ["website-qa-checklist"],
+      "role": "shared-browser-and-visual-evidence",
+      "status": "active",
+      "dispatcher_registration": true,
+      "call_when": "Design needs reproducible browser, accessibility, Lighthouse, markup, baseline or visual-diff evidence; Website QA may consume the same bounded evidence for independent release validation.",
+      "do_not_call_when": "The task is a design decision, WordPress/Elementor code fix, SEO crawl, live site mutation or a QA flow that needs authenticated/staging behaviour instead of reproducible public evidence."
+    },
+    {
+      "id": "seochecker",
+      "repository": "Yolol100/seochecker",
+      "owner_skill": "seo",
+      "consumer_skills": [],
+      "role": "technical-seo-evidence",
+      "status": "active",
+      "dispatcher_registration": true,
+      "call_when": "SEO needs reproducible crawl, indexability, Lighthouse, Nu HTML or technical regression evidence.",
+      "do_not_call_when": "The task is UX/design, independent release QA, WordPress implementation or a live Google ranking/index-status claim that requires another authoritative source."
+    },
+    {
+      "id": "elementorjson",
+      "repository": "Yolol100/elementorjson",
+      "owner_skill": "elementor",
+      "consumer_skills": [],
+      "role": "elementor-controlled-runtime",
+      "status": "active",
+      "dispatcher_registration": true,
+      "call_when": "Elementor needs source validation, import/roundtrip, controlled render, responsive browser evidence or native V3/V4 Kit-contract validation.",
+      "do_not_call_when": "The task is live WordPress mutation, generic WordPress plugin auditing, visual strategy or independent release acceptance."
+    },
+    {
+      "id": "programmeren",
+      "repository": "Yolol100/programmeren",
+      "owner_skill": "wordpressqualityarchitect",
+      "consumer_skills": [],
+      "role": "generic-wordpress-plugin-audit",
+      "status": "active",
+      "dispatcher_registration": true,
+      "call_when": "WordPress Quality Architect needs standardized remote/cross-repository plugin audit evidence, or an explicitly requested fast accountless Playground smoke that does not require MySQL/hosting parity.",
+      "do_not_call_when": "The task is a live WordPress write, Elementor JSON/runtime ownership, SEO crawling, design/QA evidence or a product-specific runtime that has not been enabled by a validated profile."
+    },
+    {
+      "id": "wordpressconnector",
+      "repository": "Yolol100/wordpressconnector",
+      "owner_skill": "wordpressqualityarchitect",
+      "consumer_skills": ["elementor"],
+      "role": "canonical-live-wordpress-bridge",
+      "status": "active",
+      "dispatcher_registration": false,
+      "call_when": "WordPress Quality Architect needs the canonical authenticated live WordPress read/write/rollback bridge; Elementor may consume it for target-locked live WordPress/Elementor inventory, import, readback or rollback after the required preflight.",
+      "do_not_call_when": "The task is source-only audit, SEO crawling, design evidence, independent QA browser testing or any write without health/auth/capability/site/dry-run/approval gates."
+    },
+    {
+      "id": "transcriberen",
+      "repository": "Yolol100/transcriberen",
+      "owner_skill": "webactueel-workflow",
+      "owner_mode": "transcribeer",
+      "consumer_skills": [],
+      "role": "caption-acquisition-runtime",
+      "status": "active",
+      "dispatcher_registration": true,
+      "call_when": "The transcribeer mode needs accountless acquisition of captions from a direct public YouTube video or Short URL.",
+      "do_not_call_when": "The source requires login, cookies, CAPTCHA, proxy bypass, playlist/channel discovery, audio download or Whisper/media transcription."
+    },
+    {
+      "id": "leadscanner",
+      "repository": "Yolol100/Leadscanner",
+      "owner_skill": "leads",
+      "consumer_skills": [],
+      "role": "leads-domain-runtime",
+      "status": "active",
+      "dispatcher_registration": true,
+      "call_when": "Leads needs its bounded public prospect discovery, website evidence, qualification, contact enrichment, preparation or explicitly gated outreach runtime.",
+      "do_not_call_when": "The task is generic SEO/design/QA scanning, WordPress implementation, or any live outreach without the Leads compliance, sender and permission gates."
+    },
+    {
+      "id": "vacature-engine",
+      "repository": "Yolol100/vacature-engine",
+      "owner_skill": "vacature-search",
+      "consumer_skills": [],
+      "role": "vacancy-deterministic-helper-and-isolated-public-ingestion",
+      "status": "active",
+      "dispatcher_registration": false,
+      "call_when": "Vacature Search needs deterministic canonicalization/gates/ranking or its isolated ingestion sibling must normalize approved public ATS/API/JobPosting sources into JobObservations for semantic review.",
+      "do_not_call_when": "The task is source-policy selection, authenticity judgement, candidate fit, CV evidence, application state, outreach, or generic web extraction outside the vacancy domain."
+    }
   ],
   "consolidations": [
-    {"source":"Yolol100/Checklist","target":"Yolol100/Designchecker","status":"migration","source_runtime_status":"legacy-active-until-evidence-parity","remove_after":["formal-evidence parity is tested","orchestrator routing is switched","Website QA accepts correlated replacement evidence"]},
-    {"source":"Yolol100/Elementorconnector","target":"Yolol100/wordpressconnector","status":"migration","source_runtime_status":"maintenance-only-until-live-bridge-parity","remove_after":["state-token and capability-inventory parity is tested","staging read/write/rollback matrix passes","all active site routes use wordpressconnector"]},
-    {"source":"Yolol100/Export-acf-to-csv","target":"Yolol100/ACF-Text-Manager","status":"duplicate-deprecation","source_runtime_status":"no-new-development","remove_after":["unique commits are reconciled","release users are directed to the canonical repository"]}
+    {
+      "source": "Yolol100/Checklist",
+      "target": "Yolol100/Designchecker",
+      "status": "migration",
+      "source_runtime_status": "legacy-active-until-evidence-parity",
+      "new_feature_policy": "blocked",
+      "remove_after": [
+        "formal-evidence parity is tested",
+        "orchestrator routing is switched",
+        "Website QA accepts correlated replacement evidence"
+      ]
+    },
+    {
+      "source": "Yolol100/Elementorconnector",
+      "target": "Yolol100/wordpressconnector",
+      "status": "migration",
+      "source_runtime_status": "maintenance-only-until-live-bridge-parity",
+      "new_feature_policy": "blocked",
+      "remove_after": [
+        "state-token and capability-inventory parity is tested",
+        "staging read/write/rollback matrix passes",
+        "all active site routes use wordpressconnector"
+      ]
+    },
+    {
+      "source": "Yolol100/Export-acf-to-csv",
+      "target": "Yolol100/ACF-Text-Manager",
+      "status": "duplicate-deprecation",
+      "source_runtime_status": "no-new-development",
+      "new_feature_policy": "blocked",
+      "remove_after": [
+        "unique commits are reconciled",
+        "release users are directed to the canonical repository"
+      ]
+    }
   ],
   "deprecated_repositories": [
-    {"repository":"Yolol100/elementor-design-kit-generator","successor":"Yolol100/elementorjson","reason":"design-kit generation and native V3/V4 kit validation belong to the Elementor runtime"}
+    {
+      "repository": "Yolol100/elementor-design-kit-generator",
+      "successor": "Yolol100/elementorjson",
+      "reason": "design-kit generation and native V3/V4 kit validation belong to the Elementor runtime"
+    }
   ],
   "archive_candidates": [
-    {"repository":"Yolol100/Woocommerce-return-requests","reason":"placeholder repository without an active implementation"}
+    {
+      "repository": "Yolol100/Woocommerce-return-requests",
+      "reason": "placeholder repository without an active implementation"
+    }
   ],
-  "excluded_repositories": [
-    {"repository":"Yolol100/vacature-engine","reason":"explicitly excluded from this simplification"}
-  ]
+  "excluded_repositories": []
 }
