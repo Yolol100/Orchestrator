@@ -103,6 +103,10 @@ def main() -> int:
         if not adapter:
             errors.append(f'unknown_repo:{node_id}')
             continue
+        availability = adapter.get('availability') or {}
+        if availability.get('status') == 'blocked':
+            errors.append(f"adapter_unavailable:{node_id}:{availability.get('reason') or 'blocked'}")
+            continue
         for key in ('repository','owner_skill','project_id','workflow','request_file','request_file_pattern','result','result_pattern','artifact_pattern','remote_trigger'):
             if node.get(key) != adapter.get(key): errors.append(f'registry_mismatch:{node_id}:{key}')
         if node.get('dispatcher') != adapter.get('dispatcher'):
