@@ -146,24 +146,28 @@ class OrchestratorTests(unittest.TestCase):
             self.assertEqual(seen['branch'], 'runtime-requests')
             self.assertEqual(seen['path'], 'requests/queue/caption-123.json')
 
-    def test_retired_wordpress_route_fails_before_token_scope(self):
-        # Even a request with the current registry fingerprint cannot revive
-        # the deleted WordPress workflow or request PR transport.
-        wp = self.make_node('seochecker', {'request_id': 'wpconn-123'})
-        wp.update(id='wordpressconnector', repository='Yolol100/wordpressconnector',
-                  workflow='.github/workflows/wordpress-request.yml')
+    def test_wordpressconnector_is_known_but_blocked_before_token_scope_while_public(self):
+        wp = self.make_node('wordpressconnector', {
+            'version': 1,
+            'request_id': 'wpconn-123',
+            'action': 'connector.discover',
+            'dry_run': True,
+            'confirm': False,
+            'payload': {},
+        })
         request = self.make_request([wp], ['wordpressconnector'])
         with tempfile.TemporaryDirectory() as raw:
-            path = Path(raw) / 'request.json'
-            output = Path(raw) / 'github-output.txt'
-            path.write_text(json.dumps(request), encoding='utf-8')
+            td = Path(raw)
+            request_path = td / 'request.json'
+            request_path.write_text(json.dumps(request), encoding='utf-8')
+            output_env = td / 'github-output.txt'
             proc = subprocess.run([
-                'python3', str(ROOT / 'scripts/validate_request.py'), str(path),
-                '--github-output', str(output),
+                'python3', str(ROOT / 'scripts' / 'validate_request.py'), str(request_path),
+                '--github-output', str(output_env),
             ], capture_output=True, text=True)
             self.assertNotEqual(proc.returncode, 0)
-            self.assertIn('unknown_repo:wordpressconnector', proc.stdout + proc.stderr)
-            self.assertFalse(output.exists(), 'must fail before emitting token scope')
+            self.assertIn('adapter_unavailable:wordpressconnector:target-repository-public', proc.stdout + proc.stderr)
+            self.assertFalse(output_env.exists(), 'blocked adapter must fail before token scope is emitted')
 
     def test_exact_duplicate_is_ignored(self):
         module = load_dispatch_module()
