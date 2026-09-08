@@ -12,6 +12,7 @@ MODULE = importlib.util.module_from_spec(SPEC)
 assert SPEC and SPEC.loader
 SPEC.loader.exec_module(MODULE)
 BASE = json.loads((ROOT / "config/platform-repositories.json").read_text(encoding="utf-8"))
+ADAPTERS = json.loads((ROOT / "config/adapter-registry.json").read_text(encoding="utf-8"))
 
 
 class PlatformArchitectureTests(unittest.TestCase):
@@ -50,6 +51,15 @@ class PlatformArchitectureTests(unittest.TestCase):
         connector = next(item for item in BASE["core_repositories"] if item["repository"] == "Yolol100/wordpressconnector")
         self.assertEqual(connector["owner_skill"], "wordpressqualityarchitect")
         self.assertEqual(connector["consumer_skills"], ["elementor"])
+
+    def test_dispatcher_registry_matches_platform_registration(self) -> None:
+        registered = {item["repository"] for item in ADAPTERS["adapters"]}
+        expected_active = {
+            item["repository"]
+            for item in BASE["core_repositories"]
+            if item["dispatcher_registration"] is True
+        }
+        self.assertEqual(registered, expected_active | {"Yolol100/Checklist"})
 
     def test_consolidation_requires_exit_gates(self) -> None:
         data = copy.deepcopy(BASE)
