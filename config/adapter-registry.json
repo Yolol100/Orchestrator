@@ -14,23 +14,10 @@
       "result_pattern": "results/runs/<request_id>.json",
       "readback_correlation": {
         "request_locator": "requests/queue/<request_id>.json@<head_sha>",
-        "match": [
-          "request_id",
-          "immutable request filename",
-          "head_sha",
-          "workflow_run.id"
-        ],
+        "match": ["request_id", "immutable request filename", "head_sha", "workflow_run.id"],
         "readback": "immutable results/runs/<request_id>.json plus run-scoped evidence where applicable"
       },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "ephemeral_runtime_branch",
-        "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
-        "default_operation": "test"
-      }
+      "dispatcher": {"support": "request_file", "branch_mode": "ephemeral_runtime_branch", "base_ref": "main", "required_permissions": {"contents": "write"}, "default_operation": "test"}
     },
     {
       "id": "designchecker",
@@ -42,27 +29,8 @@
       "request_file": "requests/command.json",
       "remote_trigger": "push-request-file",
       "result_pattern": "results/<request_id>.json",
-      "readback_correlation": {
-        "request_locator": "requests/command.json@<head_sha>",
-        "match": [
-          "request_id",
-          "owner",
-          "project_id",
-          "source_context.source_set_version",
-          "head_sha",
-          "workflow_run.id"
-        ],
-        "readback": "results/<request_id>.json committed by the matched Actions run"
-      },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "ephemeral_runtime_branch",
-        "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
-        "default_operation": "scan"
-      }
+      "readback_correlation": {"request_locator": "requests/command.json@<head_sha>", "match": ["request_id", "owner", "project_id", "source_context.source_set_version", "head_sha", "workflow_run.id"], "readback": "results/<request_id>.json committed by the matched Actions run"},
+      "dispatcher": {"support": "request_file", "branch_mode": "ephemeral_runtime_branch", "base_ref": "main", "required_permissions": {"contents": "write"}, "default_operation": "scan"}
     },
     {
       "id": "elementorjson",
@@ -75,32 +43,8 @@
       "remote_trigger": "push-request-file",
       "result_pattern": "results/runtime/<request_id>.json",
       "artifact_pattern": "elementor-orchestrator-correlation",
-      "readback_correlation": {
-        "request_locator": "requests/runtime.json@<request_head_sha>",
-        "match": [
-          "request_id",
-          "owner",
-          "project_id",
-          "source_context.source_set_version",
-          "request_head_sha",
-          "child_run.id",
-          "child_run.head_sha == request_head_sha",
-          "runtime_contract_sha256",
-          "template_fingerprints",
-          "required child artifact names"
-        ],
-        "readback": "immutable results/runtime/<request_id>.json written only after the exact-head child validate.yml run succeeds with static-audit and elementor-runtime-qa artifacts"
-      },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "ephemeral_runtime_branch",
-        "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
-        "default_operation": "test",
-        "cleanup_requires_controller_verified_head": true
-      }
+      "readback_correlation": {"request_locator": "requests/runtime.json@<request_head_sha>", "match": ["request_id", "owner", "project_id", "source_context.source_set_version", "request_head_sha", "child_run.id", "child_run.head_sha == request_head_sha", "runtime_contract_sha256", "template_fingerprints", "required child artifact names"], "readback": "immutable results/runtime/<request_id>.json written only after the exact-head child validate.yml run succeeds with static-audit and elementor-runtime-qa artifacts"},
+      "dispatcher": {"support": "request_file", "branch_mode": "ephemeral_runtime_branch", "base_ref": "main", "required_permissions": {"contents": "write"}, "default_operation": "test", "cleanup_requires_controller_verified_head": true}
     },
     {
       "id": "leadscanner",
@@ -112,28 +56,8 @@
       "request_file": "requests/scan.json",
       "remote_trigger": "push-request-file-or-workflow-dispatch",
       "artifact_pattern": "leadscanner-results-*",
-      "readback_correlation": {
-        "request_locator": "requests/scan.json@<head_sha>",
-        "match": [
-          "request_id",
-          "owner",
-          "project_id",
-          "source_context.source_set_version",
-          "target_url",
-          "head_sha",
-          "workflow_run.id"
-        ],
-        "readback": "Read the run-scoped leadscanner-results-* artifact and validate scan-results/leads-handoff.json against request/source context before Leads accepts the evidence."
-      },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "ephemeral_runtime_branch",
-        "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
-        "default_operation": "scan"
-      }
+      "readback_correlation": {"request_locator": "requests/scan.json@<head_sha>", "match": ["request_id", "owner", "project_id", "source_context.source_set_version", "target_url", "head_sha", "workflow_run.id"], "readback": "Read the run-scoped leadscanner-results-* artifact and validate scan-results/leads-handoff.json against request/source context before Leads accepts the evidence."},
+      "dispatcher": {"support": "request_file", "branch_mode": "ephemeral_runtime_branch", "base_ref": "main", "required_permissions": {"contents": "write"}, "default_operation": "scan"}
     },
     {
       "id": "programmeren",
@@ -145,27 +69,8 @@
       "request_file": ".audit/request.json",
       "remote_trigger": "push-request-file-or-workflow-dispatch",
       "artifact_pattern": "wordpress-plugin-audit-*",
-      "readback_correlation": {
-        "request_locator": ".audit/request.json@<head_sha>",
-        "match": [
-          "request_id",
-          "target_repo",
-          "target_ref",
-          "target_path",
-          "head_sha",
-          "workflow_run.id"
-        ],
-        "readback": "run-scoped wordpress-plugin-audit-* artifact"
-      },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "ephemeral_runtime_branch",
-        "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
-        "default_operation": "test"
-      }
+      "readback_correlation": {"request_locator": ".audit/request.json@<head_sha>", "match": ["request_id", "target_repo", "target_ref", "target_path", "head_sha", "workflow_run.id"], "readback": "run-scoped wordpress-plugin-audit-* artifact"},
+      "dispatcher": {"support": "request_file", "branch_mode": "ephemeral_runtime_branch", "base_ref": "main", "required_permissions": {"contents": "write"}, "default_operation": "test"}
     },
     {
       "id": "seochecker",
@@ -177,27 +82,22 @@
       "request_file": "requests/audit.json",
       "remote_trigger": "push-request-file",
       "artifact_pattern": "seo-audit-report",
-      "readback_correlation": {
-        "request_locator": "requests/audit.json@<head_sha>",
-        "match": [
-          "request_id",
-          "owner",
-          "project_id",
-          "source_context.source_set_version",
-          "head_sha",
-          "workflow_run.id"
-        ],
-        "readback": "run-scoped seo-audit-report artifact; request_id is re-read from the exact head_sha request snapshot"
-      },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "ephemeral_runtime_branch",
-        "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
-        "default_operation": "scan"
-      }
+      "readback_correlation": {"request_locator": "requests/audit.json@<head_sha>", "match": ["request_id", "owner", "project_id", "source_context.source_set_version", "head_sha", "workflow_run.id"], "readback": "run-scoped seo-audit-report artifact; request_id is re-read from the exact head_sha request snapshot"},
+      "dispatcher": {"support": "request_file", "branch_mode": "ephemeral_runtime_branch", "base_ref": "main", "required_permissions": {"contents": "write"}, "default_operation": "scan"}
+    },
+    {
+      "id": "wordpressconnector",
+      "repository": "Yolol100/wordpressconnector",
+      "owner_skill": "wordpressqualityarchitect",
+      "project_id": "project-plugin",
+      "role": "canonical-live-wordpress-github-rest-transport",
+      "workflow": ".github/workflows/wordpress-request.yml",
+      "request_file_pattern": "requests/<request_id>.json",
+      "remote_trigger": "guarded-request-pull-request",
+      "result_pattern": "results/<request_id>.json",
+      "availability": {"status": "blocked", "reason": "target-repository-public", "required_repository_visibility": "private"},
+      "readback_correlation": {"request_locator": "requests/<request_id>.json@<request_head_sha>", "match": ["request_id", "pull_request.number", "request_head_sha", "workflow_run.id", "result_commit_sha"], "readback": "results/<request_id>.json on the exact request branch after the trusted main executor revalidates the PR head and completes authenticated HTTPS REST execution"},
+      "dispatcher": {"support": "pull_request", "branch_mode": "ephemeral_pull_request_branch", "base_ref": "main", "required_permissions": {"contents": "write", "pull_requests": "write"}, "default_operation": "write", "cleanup_requires_controller_verified_head": true, "availability_gate": "repository-private"}
     },
     {
       "id": "transcriberen",
@@ -210,26 +110,8 @@
       "request_file_pattern": "requests/queue/<request_id>.json",
       "remote_trigger": "append-only-request-queue",
       "artifact_pattern": "transcription-result-<request_id>",
-      "readback_correlation": {
-        "request_locator": "requests/queue/<request_id>.json@<transport_head_sha>",
-        "match": [
-          "request_id",
-          "transport_head_sha",
-          "runtime_head_sha",
-          "workflow_run.id"
-        ],
-        "readback": "Read the run-scoped artifact and validate it against the exact repository result contract at runtime_head_sha."
-      },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "append_existing_branch",
-        "base_ref": "runtime-requests",
-        "target_branch": "runtime-requests",
-        "required_permissions": {
-          "contents": "write"
-        },
-        "default_operation": "read"
-      }
+      "readback_correlation": {"request_locator": "requests/queue/<request_id>.json@<transport_head_sha>", "match": ["request_id", "transport_head_sha", "runtime_head_sha", "workflow_run.id"], "readback": "Read the run-scoped artifact and validate it against the exact repository result contract at runtime_head_sha."},
+      "dispatcher": {"support": "request_file", "branch_mode": "append_existing_branch", "base_ref": "runtime-requests", "target_branch": "runtime-requests", "required_permissions": {"contents": "write"}, "default_operation": "read"}
     }
   ]
 }
