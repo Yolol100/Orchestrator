@@ -110,12 +110,11 @@
       "source": "Yolol100/Checklist",
       "target": "Yolol100/Designchecker",
       "status": "migration",
-      "source_runtime_status": "legacy-active-until-evidence-parity",
+      "cutover_completed": true,
+      "source_runtime_status": "rollback-only-regression-period",
       "new_feature_policy": "blocked",
       "remove_after": [
-        "formal-evidence parity is tested",
-        "orchestrator routing is switched",
-        "Website QA accepts correlated replacement evidence"
+        "documented regression period completes without replacement-evidence regressions"
       ]
     },
     {

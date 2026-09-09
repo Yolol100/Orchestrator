@@ -4,11 +4,11 @@
   "adapters": [
     {
       "id": "checklist",
-      "repository": "Yolol100/Checklist",
+      "repository": "Yolol100/Designchecker",
       "owner_skill": "website-qa-checklist",
       "project_id": "project-checklist",
       "role": "public-readonly-qa-evidence-adapter",
-      "workflow": ".github/workflows/run-checklist.yml",
+      "workflow": ".github/workflows/run-website-qa.yml",
       "request_file_pattern": "requests/queue/<request_id>.json",
       "remote_trigger": "push-immutable-request-file",
       "result_pattern": "results/runs/<request_id>.json",
