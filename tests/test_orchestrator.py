@@ -30,6 +30,7 @@ def load_dispatch_module():
 class OrchestratorTests(unittest.TestCase):
     def setUp(self):
         self.registry = json.loads((ROOT / 'config' / 'adapter-registry.json').read_text(encoding='utf-8'))
+        self.prompt_registry = json.loads((ROOT / 'config' / 'prompt-technique-registry.json').read_text(encoding='utf-8'))
         self.adapters = {item['id']: item for item in self.registry['adapters']}
         self.registry_fp = hashlib.sha256(canonical(self.registry)).hexdigest()
         os.environ['GH_TOKEN_CONTENTS'] = 'test-token'
@@ -72,7 +73,7 @@ class OrchestratorTests(unittest.TestCase):
         mutating = any(node.get('operation') in {'write', 'publish', 'release'} for node in nodes)
         approval = 'approval_before_write' if mutating else 'autonomous'
         return {
-            'schema_version': '1.0',
+            'schema_version': '1.1',
             'workflow_id': 'WF-ABCDEF123456',
             'id_seed_sha256': 'a' * 64,
             'work_item_id': 'wi-test',
@@ -84,6 +85,13 @@ class OrchestratorTests(unittest.TestCase):
             'runtime_state': 'queued',
             'approval_policy': approval,
             'return_to': 'webactueel-workflow',
+            'prompt_strategy': {
+                'contract_sha256': self.prompt_registry['prompt_strategy_contract_sha256'],
+                'strategy_sha256': 'd' * 64,
+                'techniques': ['direct-structured'],
+                'research_status': 'not-required',
+                'verification': ['check final result against acceptance criteria'],
+            },
             'execution_order': order,
             'dependency_receipts': receipts or {},
             'nodes': nodes,
@@ -124,6 +132,28 @@ class OrchestratorTests(unittest.TestCase):
             self.assertEqual(calls[0][0], 'Yolol100/seochecker')
             subprocess.run(['python3', str(ROOT / 'scripts' / 'validate_transport_plan.py'), str(request_path), str(td / 'transport.json')], check=True, capture_output=True, text=True)
 
+    def test_prompt_strategy_tampering_fails_closed(self):
+        seo = self.make_node('seochecker', {'request_id': 'seo-123', 'url': 'https://example.com'})
+        request = self.make_request([seo], ['seochecker'])
+        request['prompt_strategy']['techniques'] = ['magic-prompting']
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / 'request.json'
+            path.write_text(json.dumps(request), encoding='utf-8')
+            proc = subprocess.run(['python3', str(ROOT / 'scripts' / 'validate_request.py'), str(path)], capture_output=True, text=True)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn('prompt_strategy_unknown_technique', proc.stdout + proc.stderr)
+
+    def test_prompt_strategy_pending_research_fails_closed(self):
+        seo = self.make_node('seochecker', {'request_id': 'seo-123', 'url': 'https://example.com'})
+        request = self.make_request([seo], ['seochecker'])
+        request['prompt_strategy']['research_status'] = 'pending'
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / 'request.json'
+            path.write_text(json.dumps(request), encoding='utf-8')
+            proc = subprocess.run(['python3', str(ROOT / 'scripts' / 'validate_request.py'), str(path)], capture_output=True, text=True)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn('prompt_strategy_research_status', proc.stdout + proc.stderr)
+
     def test_append_existing_branch_is_preserved(self):
         transcribe = self.make_node('transcriberen', {'request_id': 'caption-123', 'url': 'https://www.youtube.com/watch?v=abc'})
         request = self.make_request([transcribe], ['transcriberen'])
@@ -147,20 +177,14 @@ class OrchestratorTests(unittest.TestCase):
             self.assertEqual(seen['path'], 'requests/queue/caption-123.json')
 
     def test_retired_wordpress_route_fails_before_token_scope(self):
-        # Even a request with the current registry fingerprint cannot revive
-        # the deleted WordPress workflow or request PR transport.
         wp = self.make_node('seochecker', {'request_id': 'wpconn-123'})
-        wp.update(id='wordpressconnector', repository='Yolol100/wordpressconnector',
-                  workflow='.github/workflows/wordpress-request.yml')
+        wp.update(id='wordpressconnector', repository='Yolol100/wordpressconnector', workflow='.github/workflows/wordpress-request.yml')
         request = self.make_request([wp], ['wordpressconnector'])
         with tempfile.TemporaryDirectory() as raw:
             path = Path(raw) / 'request.json'
             output = Path(raw) / 'github-output.txt'
             path.write_text(json.dumps(request), encoding='utf-8')
-            proc = subprocess.run([
-                'python3', str(ROOT / 'scripts/validate_request.py'), str(path),
-                '--github-output', str(output),
-            ], capture_output=True, text=True)
+            proc = subprocess.run(['python3', str(ROOT / 'scripts' / 'validate_request.py'), str(path), '--github-output', str(output)], capture_output=True, text=True)
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn('unknown_repo:wordpressconnector', proc.stdout + proc.stderr)
             self.assertFalse(output.exists(), 'must fail before emitting token scope')
