@@ -109,7 +109,8 @@
     {
       "source": "Yolol100/Checklist",
       "target": "Yolol100/Designchecker",
-      "status": "cutover",
+      "status": "migration",
+      "cutover_completed": true,
       "source_runtime_status": "rollback-only-regression-period",
       "new_feature_policy": "blocked",
       "remove_after": [
