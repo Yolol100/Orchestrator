@@ -59,7 +59,12 @@ class PlatformArchitectureTests(unittest.TestCase):
             for item in BASE["core_repositories"]
             if item["dispatcher_registration"] is True
         }
-        self.assertEqual(registered, expected_active | {"Yolol100/Checklist"})
+        self.assertEqual(registered, expected_active)
+
+    def test_checklist_adapter_is_cut_over_to_designchecker(self) -> None:
+        checklist = next(item for item in ADAPTERS["adapters"] if item["id"] == "checklist")
+        self.assertEqual(checklist["repository"], "Yolol100/Designchecker")
+        self.assertEqual(checklist["workflow"], ".github/workflows/run-website-qa.yml")
 
     def test_consolidation_requires_exit_gates(self) -> None:
         data = copy.deepcopy(BASE)
