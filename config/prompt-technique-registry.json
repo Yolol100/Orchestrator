@@ -3,7 +3,7 @@
   "registry_id": "webactueel-prompt-strategy-transport",
   "role": "transport-validation-only",
   "canonical_owner": "webactueel-workflow",
-  "prompt_strategy_contract_sha256": "a76a3d7651b127514fe983add1bf9e9cb9dc3f8ec87022fdd79416c96e3a02ad",
+  "prompt_strategy_contract_sha256": "bf650bff38d33d10e124e4cbc82c6b295b4730549bc7f3fdcf8963e9828dc348",
   "techniques": [
     "direct-structured",
     "plan-and-solve",
