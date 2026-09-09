@@ -1,0 +1,45 @@
+name: Refresh adapter fingerprint for migration
+
+on:
+  push:
+    branches:
+      - migration/checklist-cutover-20260909
+    paths:
+      - config/adapter-registry.json
+      - .github/workflows/migration-refresh-adapter-fingerprint.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: migration/checklist-cutover-20260909
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.12'
+      - name: Recompute canonical registry fingerprint
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+          p = Path('config/adapter-registry.json')
+          registry = json.loads(p.read_text(encoding='utf-8'))
+          canonical = json.dumps(registry, sort_keys=True, separators=(',', ':'), ensure_ascii=False).encode('utf-8')
+          Path('config/adapter-registry.sha256').write_text(hashlib.sha256(canonical).hexdigest() + '\n', encoding='utf-8')
+          PY
+      - name: Commit refreshed fingerprint
+        shell: bash
+        run: |
+          git config user.name 'webactueel-migration-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add config/adapter-registry.sha256
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m 'migration: refresh adapter registry fingerprint'
+          git push origin HEAD:migration/checklist-cutover-20260909
