@@ -10,6 +10,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REGISTRY_PATH = ROOT / 'config' / 'adapter-registry.json'
+PROMPT_TECHNIQUE_REGISTRY_PATH = ROOT / 'config' / 'prompt-technique-registry.json'
 
 
 def canonical(value: object) -> bytes:
@@ -29,6 +30,30 @@ def append_output(path: str | None, key: str, value: str) -> None:
             handle.write(f'{key}<<{marker}\n{value}\n{marker}\n')
         else:
             handle.write(f'{key}={value}\n')
+
+
+def validate_prompt_strategy(receipt: object, registry: dict) -> list[str]:
+    errors: list[str] = []
+    if not isinstance(receipt, dict):
+        return ['prompt_strategy']
+    if receipt.get('contract_sha256') != registry.get('prompt_strategy_contract_sha256'):
+        errors.append('prompt_strategy_contract_sha256')
+    if not re.fullmatch(r'[a-f0-9]{64}', str(receipt.get('strategy_sha256', ''))):
+        errors.append('prompt_strategy_sha256')
+    allowed = set(registry.get('techniques') or [])
+    techniques = receipt.get('techniques')
+    if not isinstance(techniques, list) or not techniques or len(techniques) > 16 or len(techniques) != len(set(techniques)):
+        errors.append('prompt_strategy_techniques')
+    elif any(not isinstance(item, str) or item not in allowed for item in techniques):
+        errors.append('prompt_strategy_unknown_technique')
+    if receipt.get('research_status') not in {'complete', 'not-required'}:
+        errors.append('prompt_strategy_research_status')
+    verification = receipt.get('verification')
+    if not isinstance(verification, list) or not verification or len(verification) > 16:
+        errors.append('prompt_strategy_verification')
+    elif any(not isinstance(item, str) or not item.strip() or len(item) > 300 for item in verification):
+        errors.append('prompt_strategy_verification_entry')
+    return errors
 
 
 def validate_graph(nodes: list[dict], execution_order: list[str], receipts: dict) -> list[str]:
@@ -74,10 +99,11 @@ def main() -> int:
     args = parser.parse_args()
     data = json.loads(args.request.read_text(encoding='utf-8'))
     registry = json.loads(REGISTRY_PATH.read_text(encoding='utf-8'))
+    prompt_registry = json.loads(PROMPT_TECHNIQUE_REGISTRY_PATH.read_text(encoding='utf-8'))
     known = {item['id']: item for item in registry.get('adapters', [])}
     errors: list[str] = []
 
-    if data.get('schema_version') != '1.0': errors.append('schema_version')
+    if data.get('schema_version') != '1.1': errors.append('schema_version')
     if not re.fullmatch(r'WF-[A-F0-9]{12}', str(data.get('workflow_id', ''))): errors.append('workflow_id')
     if not re.fullmatch(r'[a-f0-9]{64}', str(data.get('id_seed_sha256', ''))): errors.append('id_seed_sha256')
     if not re.fullmatch(r'[a-f0-9]{64}', str(data.get('idempotency_key', ''))): errors.append('idempotency_key')
@@ -85,6 +111,7 @@ def main() -> int:
     if data.get('return_to') != 'webactueel-workflow': errors.append('return_to')
     if data.get('transport_mode') != 'github_app': errors.append('transport_mode_not_executable_here')
     if data.get('approval_policy') not in {'autonomous','approval_before_write','approval_before_publish','human_only'}: errors.append('approval_policy')
+    errors.extend(validate_prompt_strategy(data.get('prompt_strategy'), prompt_registry))
 
     receipts = data.get('dependency_receipts') if isinstance(data.get('dependency_receipts'), dict) else {}
     if not isinstance(data.get('dependency_receipts'), dict): errors.append('dependency_receipts')

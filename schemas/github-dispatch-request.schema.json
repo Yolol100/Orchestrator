@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://webactueel.nl/schemas/github-dispatch-request-v1.json",
-  "title": "Webactueel GitHub dispatch request v1",
+  "$id": "https://webactueel.nl/schemas/github-dispatch-request-v1.1.json",
+  "title": "Webactueel GitHub dispatch request v1.1",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -17,6 +17,7 @@
     "runtime_state",
     "approval_policy",
     "return_to",
+    "prompt_strategy",
     "execution_order",
     "dependency_receipts",
     "nodes",
@@ -24,7 +25,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0"
+      "const": "1.1"
     },
     "workflow_id": {
       "type": "string",
@@ -432,6 +433,69 @@
         },
         "rollback_required": {
           "type": "boolean"
+        }
+      }
+    },
+    "prompt_strategy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_sha256",
+        "strategy_sha256",
+        "techniques",
+        "research_status",
+        "verification"
+      ],
+      "properties": {
+        "contract_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "strategy_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "techniques": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "direct-structured",
+              "plan-and-solve",
+              "prompt-chaining",
+              "retrieval-grounding",
+              "react-tool-use",
+              "few-shot-examples",
+              "meta-prompting-manager",
+              "gap-only-optimization",
+              "evaluator-optimizer",
+              "self-consistency",
+              "context-engineering",
+              "closed-loop-execution",
+              "end-to-end-verification",
+              "independent-verifier",
+              "parallel-sectioning",
+              "hypothesis-driven-debugging"
+            ]
+          }
+        },
+        "research_status": {
+          "enum": [
+            "complete",
+            "not-required"
+          ]
+        },
+        "verification": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 300
+          }
         }
       }
     }

@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0",
+  "registry_id": "webactueel-prompt-strategy-transport",
+  "role": "transport-validation-only",
+  "canonical_owner": "webactueel-workflow",
+  "prompt_strategy_contract_sha256": "a76a3d7651b127514fe983add1bf9e9cb9dc3f8ec87022fdd79416c96e3a02ad",
+  "techniques": [
+    "direct-structured",
+    "plan-and-solve",
+    "prompt-chaining",
+    "retrieval-grounding",
+    "react-tool-use",
+    "few-shot-examples",
+    "meta-prompting-manager",
+    "gap-only-optimization",
+    "evaluator-optimizer",
+    "self-consistency",
+    "context-engineering",
+    "closed-loop-execution",
+    "end-to-end-verification",
+    "independent-verifier",
+    "parallel-sectioning",
+    "hypothesis-driven-debugging"
+  ],
+  "selection_rule": "The Orchestrator never selects or changes prompt techniques. It validates and transports the controller-selected receipt only.",
+  "research_gate": "Remote dispatch requires research_status complete or not-required.",
+  "currentness_checked": "2026-09-10"
+}
