@@ -42,7 +42,7 @@ def validate_prompt_strategy(receipt: object, registry: dict) -> list[str]:
         errors.append('prompt_strategy_sha256')
     allowed = set(registry.get('techniques') or [])
     techniques = receipt.get('techniques')
-    if not isinstance(techniques, list) or not techniques or len(techniques) > 16 or len(techniques) != len(set(techniques)):
+    if not isinstance(techniques, list) or not techniques or len(techniques) > 20 or len(techniques) != len(set(techniques)):
         errors.append('prompt_strategy_techniques')
     elif any(not isinstance(item, str) or item not in allowed for item in techniques):
         errors.append('prompt_strategy_unknown_technique')

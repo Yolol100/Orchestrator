@@ -3,7 +3,7 @@
   "registry_id": "webactueel-prompt-strategy-transport",
   "role": "transport-validation-only",
   "canonical_owner": "webactueel-workflow",
-  "prompt_strategy_contract_sha256": "bf650bff38d33d10e124e4cbc82c6b295b4730549bc7f3fdcf8963e9828dc348",
+  "prompt_strategy_contract_sha256": "877f9aab45cf38cc4664caf532a6a46486d4090953e18353f5da1d7c48330da3",
   "techniques": [
     "direct-structured",
     "plan-and-solve",
@@ -20,7 +20,11 @@
     "end-to-end-verification",
     "independent-verifier",
     "parallel-sectioning",
-    "hypothesis-driven-debugging"
+    "hypothesis-driven-debugging",
+    "adversarial-validation",
+    "combinatorial-scenario-testing",
+    "property-based-invariants",
+    "reliability-trials"
   ],
   "selection_rule": "The Orchestrator never selects or changes prompt techniques. It validates and transports the controller-selected receipt only.",
   "research_gate": "Remote dispatch requires research_status complete or not-required.",
