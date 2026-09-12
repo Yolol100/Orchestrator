@@ -56,7 +56,7 @@ Actions secret:
 
 - `WEB_ACTUEEL_APP_PRIVATE_KEY`
 
-The seven registered request-file adapters receive only `contents: write`. No current adapter requires a request-PR token. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository. Live WordPress work uses the connected WP Agent and authenticated WordPress REST connector; this repository does not proxy REST credentials or site writes.
+The seven registered request-file adapters receive only `contents: write`. No current adapter requires a request-PR token. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository. Live WordPress work normally uses the connected WP Agent or an authenticated WordPress REST client. When those exact client routes are not usable but the target site is known and the connector supports and authorizes the requested action, the controller may use `wordpressconnector`'s guarded `wordpress-request.yml → GitHub OIDC → wordpress-zero-config-execute.yml` route. That is a direct connector transport, intentionally outside this Orchestrator; this repository does not proxy WordPress credentials or site writes.
 
 ## Starting a request
 
@@ -81,7 +81,7 @@ Use this Orchestrator when remote GitHub runs, wait/resume behaviour, dependency
 - `invoked` is never the same as `accepted`.
 - A dependency is satisfied only when the request contains a controller-issued `dependency_receipt`.
 - `elementorjson` uses only its registered correlated request-file route through `requests/runtime.json`; this is not a free generic dispatch route and acceptance requires exact request/result correlation.
-- `wordpressconnector` is source/CI infrastructure for the direct authenticated REST connector. Its retired `wordpress-request.yml` request-PR route is not registered and requests for it fail before token creation. The controller must verify site health, installed version, capabilities and applicable write/update gates through WP Agent.
+- `wordpressconnector` is the canonical live WordPress bridge. Its guarded `wordpress-request.yml → GitHub OIDC → wordpress-zero-config-execute.yml` transport exists as a direct repository route and is intentionally not registered as an Orchestrator adapter. A `wordpressconnector` node submitted to this Orchestrator therefore fails before token creation. The controller must prefer the exact WP Agent/direct REST route when available, classify any failure before falling back, and still verify site health, installed version, capabilities, applicable write/update gates and result readback.
 - `transcriberen` uses its own append-only `runtime-requests` queue; the dispatcher does not create a new runtime branch for it.
 - Customer/project truth does not belong on `main`. Temporary runtime branches are removed only after readback and acceptance.
 - A green GitHub Action proves transport execution, not domain correctness.
