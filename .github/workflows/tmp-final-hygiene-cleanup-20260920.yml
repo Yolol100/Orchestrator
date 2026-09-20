@@ -1,0 +1,32 @@
+name: Temporary final hygiene cleanup 2026-09-20
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Delete exact merged obsolete branches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_BRANCHES: |
+            runtime/wf-10a0b0c0d0e0-g1-smoke|489e46bb5a34eacf6dc0911b979d3475835e4ab0
+            runtime/wf-a1b2c3d4e5f6-g1-smoke|489e46bb5a34eacf6dc0911b979d3475835e4ab0
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS='|' read -r branch expected; do
+            [ -n "$branch" ] || continue
+            actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$branch" --jq '.object.sha')"
+            if [ "$actual" != "$expected" ]; then
+              echo "SHA mismatch for $branch: expected=$expected actual=$actual" >&2
+              exit 3
+            fi
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$branch"
+            echo "Deleted: $branch"
+          done <<< "$EXPECTED_BRANCHES"
