@@ -103,39 +103,6 @@
       }
     },
     {
-      "id": "leadscanner",
-      "repository": "Yolol100/Leadscanner",
-      "owner_skill": "leads",
-      "project_id": "project-leads",
-      "role": "optional-controlled-leads-website-evidence-adapter",
-      "workflow": ".github/workflows/scan.yml",
-      "request_file": "requests/scan.json",
-      "remote_trigger": "push-request-file-or-workflow-dispatch",
-      "artifact_pattern": "leadscanner-results-*",
-      "readback_correlation": {
-        "request_locator": "requests/scan.json@<head_sha>",
-        "match": [
-          "request_id",
-          "owner",
-          "project_id",
-          "source_context.source_set_version",
-          "target_url",
-          "head_sha",
-          "workflow_run.id"
-        ],
-        "readback": "Read the run-scoped leadscanner-results-* artifact and validate scan-results/leads-handoff.json against request/source context before Leads accepts the evidence."
-      },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "ephemeral_runtime_branch",
-        "base_ref": "main",
-        "required_permissions": {
-          "contents": "write"
-        },
-        "default_operation": "scan"
-      }
-    },
-    {
       "id": "programmeren",
       "repository": "Yolol100/programmeren",
       "owner_skill": "wordpressqualityarchitect",

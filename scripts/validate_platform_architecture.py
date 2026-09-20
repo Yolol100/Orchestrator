@@ -46,7 +46,7 @@ EXPECTED_DISPATCHER_REGISTRATION = {
     "Yolol100/programmeren": True,
     "Yolol100/wordpressconnector": False,
     "Yolol100/transcriberen": True,
-    "Yolol100/Leadscanner": True,
+    "Yolol100/Leadscanner": False,
     "Yolol100/vacature-engine": False,
 }
 EXPECTED_EXCLUDED: set[str] = set()
@@ -114,8 +114,8 @@ def validate(data: object) -> list[str]:
             errors.append(f"dispatcher registration mismatch for {repo}")
 
     leadscanner = next((item for item in core if isinstance(item, dict) and item.get("repository") == "Yolol100/Leadscanner"), None)
-    if not leadscanner or leadscanner.get("owner_skill") != "leads" or leadscanner.get("role") != "leads-domain-runtime":
-        errors.append("Leadscanner must be leads-owned leads-domain-runtime")
+    if not leadscanner or leadscanner.get("owner_skill") != "leads" or leadscanner.get("role") != "leads-domain-runtime-direct-owner":
+        errors.append("Leadscanner must be leads-owned leads-domain-runtime-direct-owner")
 
     vacancy = next((item for item in core if isinstance(item, dict) and item.get("repository") == "Yolol100/vacature-engine"), None)
     if not vacancy or vacancy.get("owner_skill") != "vacature-search" or vacancy.get("dispatcher_registration") is not False:
