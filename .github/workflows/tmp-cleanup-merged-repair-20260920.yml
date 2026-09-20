@@ -1,0 +1,24 @@
+name: Temporary cleanup merged repair branch
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Delete exact merged repair branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: repair/leadscanner-runtime-sync-20260920
+          EXPECTED_SHA: 8084021533bfb65a8cc146049ef77d90d9a9c209
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/$BRANCH" --jq '.object.sha')"
+          test "$actual" = "$EXPECTED_SHA"
+          gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH"
