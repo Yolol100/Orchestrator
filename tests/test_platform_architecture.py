@@ -52,6 +52,14 @@ class PlatformArchitectureTests(unittest.TestCase):
         self.assertEqual(connector["owner_skill"], "wordpressqualityarchitect")
         self.assertEqual(connector["consumer_skills"], ["elementor"])
 
+    def test_leadscanner_is_direct_leads_runtime_not_dispatcher(self) -> None:
+        leadscanner = next(item for item in BASE["core_repositories"] if item["repository"] == "Yolol100/Leadscanner")
+        self.assertEqual(leadscanner["owner_skill"], "leads")
+        self.assertEqual(leadscanner["role"], "leads-domain-runtime-direct-owner")
+        self.assertEqual(leadscanner["consumer_skills"], [])
+        self.assertFalse(leadscanner["dispatcher_registration"])
+        self.assertNotIn("Yolol100/Leadscanner", {item["repository"] for item in ADAPTERS["adapters"]})
+
     def test_dispatcher_registry_matches_platform_registration(self) -> None:
         registered = {item["repository"] for item in ADAPTERS["adapters"]}
         expected_active = {
