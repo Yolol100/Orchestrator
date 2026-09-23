@@ -12,7 +12,7 @@
 4. `Yolol100/elementorjson` — controlled Elementor runtime.
 5. `Yolol100/programmeren` — generic WordPress/plugin audit harness.
 6. `Yolol100/wordpressconnector` — canonical live WordPress read/write/rollback bridge.
-7. `Yolol100/transcriberen` — caption acquisition runtime.
+7. `Yolol100/transcriberen` — bounded public YouTube channel caption/comment corpus runtime.
 
 The machine-readable classification and migration gates live in `config/platform-repositories.json`.
 

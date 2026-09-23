@@ -155,7 +155,7 @@ class OrchestratorTests(unittest.TestCase):
             self.assertIn('prompt_strategy_research_status', proc.stdout + proc.stderr)
 
     def test_append_existing_branch_is_preserved(self):
-        transcribe = self.make_node('transcriberen', {'request_id': 'caption-123', 'url': 'https://www.youtube.com/watch?v=abc'})
+        transcribe = self.make_node('transcriberen', {'request_id': 'caption-123', 'url': 'https://www.youtube.com/@Playwrightdev'})
         request = self.make_request([transcribe], ['transcriberen'])
         with tempfile.TemporaryDirectory() as raw:
             td = Path(raw)
