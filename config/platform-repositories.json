@@ -80,11 +80,11 @@
       "owner_skill": "webactueel-workflow",
       "owner_mode": "transcribeer",
       "consumer_skills": [],
-      "role": "caption-acquisition-runtime",
+      "role": "public-youtube-channel-caption-corpus-runtime",
       "status": "active",
       "dispatcher_registration": true,
-      "call_when": "The transcribeer mode needs accountless acquisition of captions from a direct public YouTube video or Short URL.",
-      "do_not_call_when": "The source requires login, cookies, CAPTCHA, proxy bypass, playlist/channel discovery, audio download or Whisper/media transcription."
+      "call_when": "The transcribeer mode needs accountless acquisition of a bounded public YouTube channel caption/comment corpus under the current Yolol100/transcriberen runtime contract.",
+      "do_not_call_when": "The input is a direct video, Short or playlist URL, or the source requires login, cookies, CAPTCHA, proxy bypass, audio download or Whisper/media transcription."
     },
     {
       "id": "leadscanner",
