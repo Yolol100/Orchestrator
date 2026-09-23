@@ -82,7 +82,7 @@ Use this Orchestrator when remote GitHub runs, wait/resume behaviour, dependency
 - A dependency is satisfied only when the request contains a controller-issued `dependency_receipt`.
 - `elementorjson` uses only its registered correlated request-file route through `requests/runtime.json`; this is not a free generic dispatch route and acceptance requires exact request/result correlation.
 - `wordpressconnector` is the canonical live WordPress bridge. Its guarded `wordpress-request.yml → GitHub OIDC → wordpress-zero-config-execute.yml` transport exists as a direct repository route and is intentionally not registered as an Orchestrator adapter. A `wordpressconnector` node submitted to this Orchestrator therefore fails before token creation. The controller must prefer the exact WP Agent/direct REST route when available, classify any failure before falling back, and still verify site health, installed version, capabilities, applicable write/update gates and result readback.
-- `transcriberen` uses its own append-only `runtime-requests` queue; the dispatcher does not create a new runtime branch for it.
+- `transcriberen` channel-corpus requests use its own append-only `runtime-requests` queue; direct video, Short and playlist inputs are outside the current network-runtime contract, and the dispatcher does not create a new runtime branch for it.
 - Customer/project truth does not belong on `main`. Temporary runtime branches are removed only after readback and acceptance.
 - A green GitHub Action proves transport execution, not domain correctness.
 
