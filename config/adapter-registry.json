@@ -172,7 +172,7 @@
       "owner_skill": "webactueel-workflow",
       "owner_mode": "transcribeer",
       "project_id": "project-transcriberen",
-      "role": "controlled-public-youtube-caption-capability",
+      "role": "controlled-public-youtube-channel-caption-corpus-capability",
       "workflow": ".github/workflows/transcribe.yml",
       "request_file_pattern": "requests/queue/<request_id>.json",
       "remote_trigger": "append-only-request-queue",
