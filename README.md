@@ -1,6 +1,6 @@
 # GitHub Orchestrator — Controlled Multi-Repository Automation
 
-> **Portfolio flagship · Python · GitHub Actions · GitHub App tokens · JSON contracts**
+> **Supporting engineering project · Python · GitHub Actions · GitHub App tokens · JSON contracts**
 
 GitHub Orchestrator is a controlled transport layer for coordinating approved automation work across multiple specialist repositories. It focuses on least-privilege access, explicit dependencies, traceable requests and inspectable results instead of treating a triggered workflow as proof that the work was accepted.
 
@@ -122,9 +122,9 @@ The transport layer is actively developed and contract-driven. Extensions requir
 
 ## About the developer
 
-I am **Andrew Baeten**, a Senior WordPress Developer & Web Designer with 10+ years of experience across **90+ WordPress projects**. I currently manage and regularly update **120+ websites and webshops**, alongside building WordPress/WooCommerce solutions and QA, SEO and automation tooling for reliable website delivery.
+I am **Andrew Baeten**, a Senior WordPress Developer & Web Designer with 10+ years of experience and **70+ delivered WordPress projects**. I also build QA, SEO and automation tooling for reliable website delivery.
 
-[Portfolio](https://andrewbaeten.nl) · [LinkedIn](https://www.linkedin.com/in/andrew-baeten-305a1478/) · [Email](mailto:info@andrewbaeten.nl)
+[Portfolio cases](https://andrewbaeten.nl/category/cases) · [LinkedIn](https://www.linkedin.com/in/andrew-baeten-305a1478/) · [Email](mailto:info@andrewbaeten.nl)
 
 ## License
 
