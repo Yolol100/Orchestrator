@@ -4,7 +4,7 @@
 
 GitHub Orchestrator is a controlled transport layer for coordinating approved automation work across multiple specialist repositories. It focuses on least-privilege access, explicit dependencies, traceable requests and inspectable results instead of treating a triggered workflow as proof that the work was accepted.
 
-**Built by:** [Andrew Baeten](https://github.com/Yolol100) · [Portfolio](https://andrewbaeten.nl)
+**Built by:** [Andrew Baeten](https://github.com/Yolol100) · [Portfolio cases](https://andrewbaeten.nl/category/cases)
 
 ## What problem it solves
 
