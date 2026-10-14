@@ -56,7 +56,7 @@ Actions secret:
 
 - `WEB_ACTUEEL_APP_PRIVATE_KEY`
 
-The seven registered request-file adapters receive only `contents: write`. No current adapter requires a request-PR token. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository. Live WordPress work normally uses the connected WP Agent or an authenticated WordPress REST client. When those exact client routes are not usable but the target site is known and the connector supports and authorizes the requested action, the controller may use `wordpressconnector`'s guarded `wordpress-request.yml → GitHub OIDC → wordpress-zero-config-execute.yml` route. That is a direct connector transport, intentionally outside this Orchestrator; this repository does not proxy WordPress credentials or site writes.
+The six registered request-file adapters receive only `contents: write`. No current adapter requires a request-PR token. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository. Live WordPress work normally uses the connected WP Agent or an authenticated WordPress REST client. When those exact client routes are not usable but the target site is known and the connector supports and authorizes the requested action, the controller may use `wordpressconnector`'s guarded `wordpress-request.yml → GitHub OIDC → wordpress-zero-config-execute.yml` route. That is a direct connector transport, intentionally outside this Orchestrator; this repository does not proxy WordPress credentials or site writes.
 
 ## Starting a request
 
