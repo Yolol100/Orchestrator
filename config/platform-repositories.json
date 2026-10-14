@@ -118,7 +118,9 @@
       "source_runtime_status": "rollback-only-regression-period",
       "new_feature_policy": "blocked",
       "remove_after": [
-        "documented regression period completes without replacement-evidence regressions"
+        "the documented regression observation window elapsed without replacement-evidence regressions (Checklist #31)",
+        "normal controller, CI and Skill callsites use Designchecker; Checklist is rollback-only",
+        "authorized compatibility readback, rollback evidence, release hashes and independent Website QA owner acceptance are recorded"
       ]
     },
     {
@@ -128,9 +130,11 @@
       "source_runtime_status": "maintenance-only-until-live-bridge-parity",
       "new_feature_policy": "blocked",
       "remove_after": [
-        "state-token and capability-inventory parity is tested",
-        "staging read/write/rollback matrix passes",
-        "all active site routes use wordpressconnector"
+        "WordPress Connector 1.9.1+ is verified on every previously relevant authorized site (Elementorconnector #30)",
+        "capability and state-token parity, staging create/replace/readback, stale-state/idempotency and actual rollback pass",
+        "Page/Post/Saved Template JSON import/export and bulk ZIP export with manifest.json and bounded limits pass; Theme Builder site parts where applicable",
+        "all active site, plugin, Skill, controller and CI callsites use wordpressconnector; legacy Elementor bridge is inactive",
+        "independent Elementor/WordPress Quality Architect owner and Website QA acceptance with rollback references are recorded"
       ]
     },
     {
