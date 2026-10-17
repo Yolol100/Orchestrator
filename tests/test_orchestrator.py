@@ -154,27 +154,23 @@ class OrchestratorTests(unittest.TestCase):
             self.assertNotEqual(proc.returncode, 0)
             self.assertIn('prompt_strategy_research_status', proc.stdout + proc.stderr)
 
-    def test_append_existing_branch_is_preserved(self):
-        transcribe = self.make_node('transcriberen', {'request_id': 'caption-123', 'url': 'https://www.youtube.com/@Playwrightdev'})
+    def test_missing_transcription_adapter_fails_before_token_scope(self):
+        # The retired transcribe.yml must not be accepted by this dispatcher.
+        transcribe = self.make_node('seochecker', {'request_id': 'caption-123', 'url': 'https://www.youtube.com/@Playwrightdev'})
+        transcribe.update(id='transcriberen', repository='Yolol100/transcriberen',
+                          workflow='.github/workflows/transcribe.yml')
         request = self.make_request([transcribe], ['transcriberen'])
         with tempfile.TemporaryDirectory() as raw:
-            td = Path(raw)
-            request_path = td / 'request.json'
-            request_path.write_text(json.dumps(request), encoding='utf-8')
-            module = load_dispatch_module()
-            seen = {}
-            def append(repo, branch, path, payload, message):
-                seen.update(repo=repo, branch=branch, path=path)
-                return 'invoked', 'e' * 40
-            module.ensure_append_request = append
-            old_argv = sys.argv
-            try:
-                sys.argv = ['dispatch_nodes.py', str(request_path), str(td / 'transport.json')]
-                self.assertEqual(module.main(), 0)
-            finally:
-                sys.argv = old_argv
-            self.assertEqual(seen['branch'], 'runtime-requests')
-            self.assertEqual(seen['path'], 'requests/queue/caption-123.json')
+            path = Path(raw) / 'request.json'
+            output = Path(raw) / 'github-output.txt'
+            path.write_text(json.dumps(request), encoding='utf-8')
+            proc = subprocess.run([
+                'python3', str(ROOT / 'scripts' / 'validate_request.py'), str(path),
+                '--github-output', str(output),
+            ], capture_output=True, text=True)
+            self.assertNotEqual(proc.returncode, 0)
+            self.assertIn('unknown_repo:transcriberen', proc.stdout + proc.stderr)
+            self.assertFalse(output.exists(), 'must fail before emitting token scope')
 
     def test_retired_wordpress_route_fails_before_token_scope(self):
         wp = self.make_node('seochecker', {'request_id': 'wpconn-123'})
