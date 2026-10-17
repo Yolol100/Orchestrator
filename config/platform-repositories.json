@@ -82,9 +82,9 @@
       "consumer_skills": [],
       "role": "public-youtube-channel-caption-corpus-runtime",
       "status": "active",
-      "dispatcher_registration": true,
-      "call_when": "The transcribeer mode needs accountless acquisition of a bounded public YouTube channel caption/comment corpus under the current Yolol100/transcriberen runtime contract.",
-      "do_not_call_when": "The input is a direct video, Short or playlist URL, or the source requires login, cookies, CAPTCHA, proxy bypass, audio download or Whisper/media transcription."
+      "dispatcher_registration": false,
+      "call_when": "Only a separately authorized offline/private-Drive transcription-corpus operation supported by the exact current repo contract; new public YouTube acquisition stays BLOCKED_PROVIDER until a valid authorized provider and runtime are verified.",
+      "do_not_call_when": "Never dispatch this repository via the Orchestrator: retired transcribe.yml does not exist. Do not acquire public channel captions without current approved provider access; do not use direct videos, Shorts, playlists, cookies, CAPTCHA/proxy bypass or media downloads."
     },
     {
       "id": "leadscanner",
