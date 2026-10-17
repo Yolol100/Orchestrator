@@ -76,13 +76,11 @@ class PlatformArchitectureTests(unittest.TestCase):
 
     def test_transcriberen_is_channel_corpus_runtime(self) -> None:
         runtime = next(item for item in BASE["core_repositories"] if item["repository"] == "Yolol100/transcriberen")
-        adapter = next(item for item in ADAPTERS["adapters"] if item["id"] == "transcriberen")
         self.assertEqual(runtime["role"], "public-youtube-channel-caption-corpus-runtime")
-        self.assertIn("YouTube channel", runtime["call_when"])
-        self.assertIn("direct video, Short or playlist", runtime["do_not_call_when"])
-        self.assertEqual(adapter["role"], "controlled-public-youtube-channel-caption-corpus-capability")
-        self.assertEqual(adapter["dispatcher"]["branch_mode"], "append_existing_branch")
-        self.assertEqual(adapter["dispatcher"]["target_branch"], "runtime-requests")
+        self.assertIs(runtime["dispatcher_registration"], False)
+        self.assertIn("BLOCKED_PROVIDER", runtime["call_when"])
+        self.assertIn("retired transcribe.yml", runtime["do_not_call_when"])
+        self.assertNotIn("Yolol100/transcriberen", {item["repository"] for item in ADAPTERS["adapters"]})
 
     def test_consolidation_requires_exit_gates(self) -> None:
         data = copy.deepcopy(BASE)
