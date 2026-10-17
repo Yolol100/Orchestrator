@@ -45,7 +45,7 @@ EXPECTED_DISPATCHER_REGISTRATION = {
     "Yolol100/elementorjson": True,
     "Yolol100/programmeren": True,
     "Yolol100/wordpressconnector": False,
-    "Yolol100/transcriberen": True,
+    "Yolol100/transcriberen": False,
     "Yolol100/Leadscanner": False,
     "Yolol100/vacature-engine": False,
 }
