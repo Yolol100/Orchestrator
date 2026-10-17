@@ -165,38 +165,6 @@
         },
         "default_operation": "scan"
       }
-    },
-    {
-      "id": "transcriberen",
-      "repository": "Yolol100/transcriberen",
-      "owner_skill": "webactueel-workflow",
-      "owner_mode": "transcribeer",
-      "project_id": "project-transcriberen",
-      "role": "controlled-public-youtube-channel-caption-corpus-capability",
-      "workflow": ".github/workflows/transcribe.yml",
-      "request_file_pattern": "requests/queue/<request_id>.json",
-      "remote_trigger": "append-only-request-queue",
-      "artifact_pattern": "transcription-result-<request_id>",
-      "readback_correlation": {
-        "request_locator": "requests/queue/<request_id>.json@<transport_head_sha>",
-        "match": [
-          "request_id",
-          "transport_head_sha",
-          "runtime_head_sha",
-          "workflow_run.id"
-        ],
-        "readback": "Read the run-scoped artifact and validate it against the exact repository result contract at runtime_head_sha."
-      },
-      "dispatcher": {
-        "support": "request_file",
-        "branch_mode": "append_existing_branch",
-        "base_ref": "runtime-requests",
-        "target_branch": "runtime-requests",
-        "required_permissions": {
-          "contents": "write"
-        },
-        "default_operation": "read"
-      }
     }
   ]
 }
