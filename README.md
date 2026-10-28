@@ -6,21 +6,6 @@ GitHub Orchestrator is a controlled transport layer for coordinating approved au
 
 **Developer profile:** [Andrew Baeten](https://github.com/Yolol100) · [GitHub project index](https://github.com/Yolol100?tab=repositories)
 
-## What problem it solves
-
-Multi-repository automation can quickly become difficult to audit: one workflow triggers another, permissions become too broad, dependencies are implicit and a green job is mistaken for a correct result. This project keeps transport separate from domain decisions and records the exact repositories, request state, correlation data and cleanup obligations involved in each run.
-
-## Portfolio snapshot
-
-| Area | What it demonstrates |
-| --- | --- |
-| Orchestration | Bounded multi-repository workflow coordination |
-| Security | Short-lived least-privilege GitHub App tokens |
-| Reliability | Idempotency, dependency receipts and registry fingerprint validation |
-| Traceability | Correlation-stable request/result contracts and `transport-plan.json` evidence |
-| Engineering | Python, GitHub Actions, JSON contracts, compile checks and unit tests |
-| Safety | Temporary runtime branches, explicit approvals and controlled cleanup |
-
 ## Architecture
 
 ```text
@@ -56,7 +41,7 @@ Actions secret:
 
 - `WEB_ACTUEEL_APP_PRIVATE_KEY`
 
-The six registered request-file adapters receive only `contents: write`. No current adapter requires a request-PR token. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository. Live WordPress work normally uses the connected WP Agent or an authenticated WordPress REST client. When those exact client routes are not usable but the target site is known and the connector supports and authorizes the requested action, the controller may use `wordpressconnector`'s guarded `wordpress-request.yml → GitHub OIDC → wordpress-zero-config-execute.yml` route. That is a direct connector transport, intentionally outside this Orchestrator; this repository does not proxy WordPress credentials or site writes.
+The five registered request-file adapters receive only `contents: write`. No current adapter requires a request-PR token. The normal workflow `GITHUB_TOKEN` remains `contents: read` for this repository. Live WordPress work normally uses the connected WP Agent or an authenticated WordPress REST client. When those exact client routes are not usable but the target site is known and the connector supports and authorizes the requested action, the controller may use `wordpressconnector`'s guarded `wordpress-request.yml → GitHub OIDC → wordpress-zero-config-execute.yml` route. That is a direct connector transport, intentionally outside this Orchestrator; this repository does not proxy WordPress credentials or site writes.
 
 ## Starting a request
 
