@@ -94,8 +94,8 @@
       "role": "leads-domain-runtime-direct-owner",
       "status": "active",
       "dispatcher_registration": false,
-      "call_when": "Leads directly invokes bounded Overture + PDOK candidate discovery, DraftQueue validation or the my.host draft runtime after the Leads evidence and contact-basis gates.",
-      "do_not_call_when": "Do not route Leadscanner through an Orchestrator adapter. Discovery hints are not prospect evidence, and no DraftQueue or mail action may bypass Leads ownership and gates."
+      "call_when": "Leads directly invokes bounded Dutch company discovery, official-website verification, private Candidates/Approved registration and read-only historical dedupe/suppression checks; requires owner authorization and exact private readback.",
+      "do_not_call_when": "Do not route Leadscanner through an Orchestrator adapter. No mail, messages, drafts, IMAP, SMTP, delivery or follow-up runtime exists; unverified discovery hints are not prospect evidence."
     },
     {
       "id": "vacature-engine",
