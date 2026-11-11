@@ -1,0 +1,35 @@
+name: Attest external Webactueel Skill candidate digest
+# This signs the externally produced candidate digest only. It does not claim
+# GitHub built or hosted the 8-Skill ZIP, nor does it approve the release.
+on:
+  push:
+    branches:
+      - release-candidate/webactueel-mesh-2026-11-11
+    paths:
+      - .github/workflows/attest-external-skill-candidate.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+  id-token: write
+  attestations: write
+jobs:
+  sign-external-candidate-record:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Establish recorded digest and non-build scope
+        shell: bash
+        run: |
+          echo 'Candidate: webactueel-skill-mesh.zip'
+          echo 'SHA-256: e4582ec0edb68492b08ee64aa694d3ff65343c572139f7a5c7e05c67ae49f958'
+          echo 'Artifact was built outside GitHub. The digest comes from local validation.'
+          echo 'This is not an artifact upload, build-provenance attestation, or release GO.'
+      - name: Sigstore sign external candidate digest (custom predicate)
+        id: attest
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-name: webactueel-skill-mesh.zip
+          subject-digest: sha256:e4582ec0edb68492b08ee64aa694d3ff65343c572139f7a5c7e05c67ae49f958
+          predicate-type: https://webactueel.nl/attestations/external-candidate-digest/v1
+          predicate: '{"schema_version":"1.0","subject_origin":"external_prebuilt_local","validation_scope":"hash_record_only","artifact_hosted_in_github":false,"github_built":false,"formal_release_approved":false,"note":"Cryptographically signed record of an externally validated ZIP SHA-256, not GitHub build provenance or release acceptance."}'
+      - name: Publish attestation link
+        run: echo "${{ steps.attest.outputs.attestation-url }}" >> "$GITHUB_STEP_SUMMARY"

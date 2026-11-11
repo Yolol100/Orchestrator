@@ -1,0 +1,80 @@
+name: Public Google release-source capture
+on:
+  push:
+    branches:
+      - release-candidate/webactueel-mesh-2026-11-11
+    paths:
+      - .github/workflows/capture-public-release-sources.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  fetch-public-official-sources:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Fetch raw Google RSS JSON and Search Console Help
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import datetime as dt, hashlib, json, pathlib, re, sys, urllib.request, xml.etree.ElementTree as ET
+          urls={
+          "search_feed":"https://developers.google.com/search/updates/search_docs_updates.rss",
+          "crawling_feed":"https://developers.google.com/crawling/docs/changelog/crawling_docs_updates.rss",
+          "status":"https://status.search.google.com/incidents.json",
+          "search_page":"https://developers.google.com/search/updates?hl=en",
+          "crawling_page":"https://developers.google.com/crawling/docs/changelog?hl=en",
+          "gsc_search":"https://support.google.com/webmasters/answer/16984139?hl=en",
+          "gsc_discover":"https://support.google.com/webmasters/answer/16983858?hl=en",
+          "gsc_control":"https://support.google.com/webmasters/answer/16908024?hl=en",
+          "gsc_anomalies":"https://support.google.com/webmasters/answer/6211453?hl=en"
+          }
+          folder=pathlib.Path("public-source-evidence");folder.mkdir(exist_ok=True)
+          results={};errors=[]
+          for name,url in urls.items():
+              try:
+                  request=urllib.request.Request(url,headers={"User-Agent":"Mozilla/5.0 WebactueelPublicReleaseCurrentness/1.0","Cache-Control":"no-cache","Accept":"*/*"})
+                  with urllib.request.urlopen(request,timeout=40) as response:
+                      data=response.read()
+                      status=response.status
+                      date=response.headers.get("Date")
+                      content_type=response.headers.get("Content-Type")
+                  if not data:raise ValueError("empty body")
+                  suffix=".rss" if name.endswith("_feed") else ".json" if name=="status" else ".html"
+                  (folder/(name+suffix)).write_bytes(data)
+                  meta={"url":url,"http":status,"bytes":len(data),"sha256":hashlib.sha256(data).hexdigest(),"server_date":date,"content_type":content_type}
+                  if name.endswith("_feed"):
+                      items=ET.fromstring(data).findall("./channel/item")
+                      if not items:raise ValueError("no valid RSS items")
+                      meta["items"]=len(items)
+                      meta["newest"]={"guid":items[0].findtext("guid"),"pubDate":items[0].findtext("pubDate"),"title":items[0].findtext("title")}
+                  if name=="status":
+                      incidents=json.loads(data)
+                      if not isinstance(incidents,list) or not incidents:raise ValueError("empty Search Status JSON")
+                      meta["newest"]=[{"id":q.get("id"),"start":q.get("begin"),"end":q.get("end"),"title":q.get("external_desc")} for q in incidents[:3]]
+                  results[name]=meta
+              except Exception as err:
+                  errors.append({"name":name,"reason":str(err)})
+                  results[name]={"url":url,"error":str(err)}
+          out={"checked_utc":dt.datetime.now(dt.timezone.utc).isoformat(),"origin":"live network on GitHub-hosted runner","no_private_data":True,"sources":results,"errors":errors}
+          (folder/"capture_receipt.json").write_text(json.dumps(out,indent=2,ensure_ascii=False)+"\n",encoding="utf-8")
+          print(json.dumps(out,indent=2,ensure_ascii=False))
+          if errors:
+              (folder/"errors.flag").write_text("Public source fetch incomplete\n")
+          PY
+      - name: Attach public-only raw source evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: google-public-currentness-snapshot
+          path: public-source-evidence/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Fail if any source was unavailable
+        shell: bash
+        run: |
+          if [ -f public-source-evidence/errors.flag ]; then
+            echo 'Some public official sources failed to fetch; NOT VALIDATED'
+            exit 1
+          fi
+          echo 'All public source bytes fetched; semantic policy validation is still required.'

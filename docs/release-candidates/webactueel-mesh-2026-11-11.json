@@ -1,0 +1,35 @@
+{
+  "schema_version": "1.0",
+  "release_version": "2026-11-11.1-webactueel-mesh-validation-candidate",
+  "status": "TECHNICAL_CANDIDATE_PASS_FORMAL_RELEASE_BLOCKED",
+  "release_date": "2026-11-11",
+  "artifact": "webactueel-skill-mesh.zip",
+  "artifact_sha256": "e4582ec0edb68492b08ee64aa694d3ff65343c572139f7a5c7e05c67ae49f958",
+  "skill_package_count": 8,
+  "validation": {
+    "fast_shards_passed": 4,
+    "runtime_lanes_passed": 2,
+    "full_validation_lanes_passed": 18,
+    "tree_files_unchanged": 848,
+    "reproducible_zip_build": true,
+    "source_parity": true
+  },
+  "live_source_integrity": {
+    "project_seo_sha256_match": "26/26",
+    "project_checklist_sha256_match": "34/34"
+  },
+  "release_history": "8 historical skill records retained in RELEASE-HISTORY.zip; this file is a candidate index, not signed provenance",
+  "open_gates": [
+    "18 Project Checklist next_review content approvals overdue",
+    "External GitHub/Sigstore attestation not executed or verified",
+    "New eight-Skill candidate installation and owner acceptance not verified",
+    "Full mutable SEO policy-currentness acceptance not established"
+  ],
+  "cryptographic_attestation": {
+    "status": "NOT_EXECUTED",
+    "verified": false
+  },
+  "production_accepted": false,
+  "source_code_changed_on_main": false,
+  "notes": "Read-only evidence index. No release binary, customer data, mailbox messages or credentials included. GitHub Actions success on unrelated code does not prove this artifact was built/attested by GitHub."
+}
